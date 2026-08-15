@@ -14,7 +14,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Geist', sans-serif" }} >
+      <body style={{ fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }} >
         <Outlet />
         <ScrollRestoration />
         <Scripts />

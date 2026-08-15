@@ -1,0 +1,709 @@
+/* ─── CSS Variables & Tokens ─────────────────────────────────────────── */
+:root {
+  --primary-purple: #5B3DF5;
+  --primary-purple-hover: #4C31D9;
+  --light-purple: #F5F3FF;
+  --purple-border: #DDD6FE;
+  --page-bg: #FAFAFC;
+  --card-bg: #FFFFFF;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --border-color: #E5E7EB;
+  --success-bg: #DCFCE7;
+  --success-text: #15803D;
+  --warning-bg: #FEF3C7;
+  --warning-text: #B45309;
+  --error-bg: #FEE2E2;
+  --error-text: #B91C1C;
+  --card-shadow: 0px 1px 2px rgba(16, 24, 40, 0.04), 0px 1px 3px rgba(16, 24, 40, 0.08);
+  --card-border-radius: 12px;
+}
+
+/* ─── Canvas ─────────────────────────────────────────────────────────── */
+.pricing-page-root {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--page-bg);
+  color: var(--text-primary);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 28px 32px 60px;
+  box-sizing: border-box;
+}
+
+.pricing-page-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Card Base ──────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────── */
+.pricing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+
+.pricing-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+
+.pricing-subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.billing-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+
+.billing-toggle-pill {
+  display: flex;
+  background-color: #F3F4F6;
+  border-radius: 999px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.toggle-option-btn {
+  border: none;
+  background: none;
+  padding: 7px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle-option-btn.toggle-active {
+  background-color: #FFFFFF;
+  color: var(--primary-purple);
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.annual-save-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-hint-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-purple);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* ─── Main Pricing Cards Grid Layout ──────────────────────────────────── */
+.pricing-grid-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* Benefits Side Panel */
+.benefits-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+
+.benefit-info-box {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--card-shadow);
+}
+
+.benefit-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bg-purple-light { background-color: var(--light-purple); }
+.bg-green-light { background-color: var(--success-bg); }
+.bg-orange-light { background-color: var(--warning-bg); }
+.bg-blue-light { background-color: #EFF6FF; }
+
+.benefit-box-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.benefit-box-desc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Pricing Cards Flex Container */
+.pricing-cards-flex {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.pricing-card {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.card-popular {
+  border: 2px solid var(--primary-purple) !important;
+  box-shadow: 0px 4px 16px rgba(91, 61, 245, 0.12) !important;
+}
+
+.popular-top-badge {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--primary-purple);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.5px;
+}
+
+.pricing-card-header {
+  margin-top: 6px;
+  margin-bottom: 16px;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.plan-name-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.plan-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-desc-text {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  min-height: 34px;
+}
+
+.pricing-amount-section {
+  margin-bottom: 18px;
+}
+
+.price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.currency-symbol {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.price-number {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.6px;
+}
+
+.price-period {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.custom-price-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.price-subtext {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.strikethrough-price {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.pricing-cta-section {
+  margin-bottom: 20px;
+}
+
+.btn-pricing-cta {
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-purple-outline {
+  border: 1px solid var(--purple-border);
+  background-color: #FFFFFF;
+  color: var(--primary-purple);
+}
+
+.btn-purple-outline:hover {
+  background-color: var(--light-purple);
+}
+
+.btn-purple-solid {
+  border: none;
+  background-color: var(--primary-purple);
+  color: #FFFFFF;
+  box-shadow: 0px 2px 4px rgba(91, 61, 245, 0.2);
+}
+
+.btn-purple-solid:hover {
+  background-color: var(--primary-purple-hover);
+}
+
+.btn-current-plan {
+  border: 1px solid var(--border-color);
+  background-color: #F3F4F6;
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.pricing-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feature-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.feature-check-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.feature-item-text {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+/* ─── Bottom Section (Compare Table & Support Cards) ──────────────────── */
+.pricing-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Comparison Table */
+.comparison-table-card {
+  padding: 20px 24px;
+}
+
+.comparison-header {
+  margin-bottom: 16px;
+}
+
+.comparison-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.comparison-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.comparison-table th {
+  padding: 12px 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.th-pro-popular {
+  background-color: var(--light-purple);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.pro-header-badge-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--primary-purple);
+}
+
+.pro-tag-sub {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.comparison-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #F3F4F6;
+  vertical-align: middle;
+}
+
+.td-feature-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.td-plan-cell {
+  text-align: center;
+}
+
+.td-pro-col {
+  background-color: #F8F6FF;
+}
+
+.matrix-val-text {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.table-check-icon,
+.table-cross-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Support Sidebar Cards */
+.pricing-support-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pricing-support-card {
+  padding: 20px;
+}
+
+.support-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.support-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.support-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.support-card-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.btn-support-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--purple-border);
+  background-color: #FFFFFF;
+  color: var(--primary-purple);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-support-action:hover {
+  background-color: var(--light-purple);
+}
+
+/* Custom Solution Card */
+.custom-solution-card {
+  background-color: #F8F6FF;
+  border-color: #DDD6FE;
+}
+
+.custom-solution-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.custom-text-content {
+  flex: 1;
+}
+
+.briefcase-illustration-box {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.briefcase-icon-bg {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background-color: var(--primary-purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 4px 10px rgba(91, 61, 245, 0.3);
+}
+
+.sparkle-decoration {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 16px;
+}
+
+/* ─── Money Back Guarantee Banner ────────────────────────────────────── */
+.money-back-banner-card {
+  padding: 18px 24px;
+  background-color: #DCFCE7;
+  border-color: #86EFAC;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.banner-left-guarantee {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.guarantee-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background-color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.guarantee-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #15803D;
+}
+
+.guarantee-desc {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #166534;
+}
+
+.banner-right-trust {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar-stack-container {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background-color: #FFFFFF;
+  border: 2px solid #DCFCE7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  margin-left: -8px;
+}
+
+.avatar-1 { margin-left: 0; }
+
+.avatar-count-badge {
+  background-color: #15803D;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: -6px;
+}
+
+.trust-rating-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.trusted-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #15803D;
+}
+
+.stars-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rating-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: #166534;
+  margin-left: 4px;
+}
+
+/* ─── Responsive Media Queries ────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .pricing-grid-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .benefits-side-panel {
+    flex-direction: row;
+  }
+
+  .pricing-cards-flex {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pricing-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .pricing-page-root {
+    padding: 16px 16px 40px;
+  }
+
+  .pricing-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .billing-toggle-container {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pricing-cards-flex {
+    grid-template-columns: 1fr;
+  }
+
+  .benefits-side-panel {
+    flex-direction: column;
+  }
+
+  .money-back-banner-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}

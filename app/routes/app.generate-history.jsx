@@ -1,79 +1,179 @@
-import { useState } from "react";
-import "../styles/app._index.css";
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router";
+import { boundary } from "@shopify/shopify-app-react-router/server";
+import { authenticate } from "../shopify.server";
+import SkuHistoryHeader from "../components/SkuHistory/SkuHistoryHeader";
+import HistorySummary from "../components/SkuHistory/HistorySummary";
+import HistoryFilters from "../components/SkuHistory/HistoryFilters";
+import HistoryTable from "../components/SkuHistory/HistoryTable";
+import {
+  ViewDetailsModal,
+  ViewGeneratedSkusModal,
+  DeleteHistoryModal,
+  ExportModal,
+} from "../components/SkuHistory/HistoryModals";
+import { initialHistoryRecords, initialSummaryData } from "../components/SkuHistory/mockData";
+import "../styles/app.generate-history.css";
 
-const recentActivity = [
-    { rule: "Daily new products", status: "Completed", products: 12, variants: 18, generated: 30, date: "May 20, 2025 10:30 AM" },
-    { rule: "Collection based rule", status: "Completed", products: 8, variants: 24, generated: 32, date: "May 19, 2025 09:15 AM" },
-    { rule: "Vendor rule", status: "Completed", products: 15, variants: 27, generated: 42, date: "May 18, 2025 02:46 PM" },
-    { rule: "Manual run", status: "Failed", products: 5, variants: 8, generated: "—", date: "May 17, 2025 11:20 AM" },
-    // { rule: "Gift cards update", status: "Completed", products: 3, variants: 3, generated: 6, date: "May 16, 2025 08:10 AM" },
-];
-
-const ArrowRight = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-    </svg>
-);
+export const loader = async ({ request }) => {
+  await authenticate.admin(request);
+  return null;
+};
 
 export default function GenerateHistoryPage() {
-    return (
-        <div className="dashboard-root">
-            <div className="dashboard-inner">
+  const navigate = useNavigate();
 
-                {/* ── Header ─────────────────────────────────────────────── */}
-                <div className="dashboard-header">
-                    <div>
-                        <h1 className="dashboard-title">SKU History</h1>
-                        <p className="dashboard-subtitle">Track and manage all your SKU generation activities.</p>
-                    </div>
-                </div>
+  // ─── Data State ───────────────────────────────────────────────────────
+  const [records, setRecords] = useState(initialHistoryRecords);
+  const [summaryData, setSummaryData] = useState(initialSummaryData);
 
-                {/* ── Bottom Row ─────────────────────────────────────────── */}
-                <div className="bottom-grid">
-                    {/* Recent Activity */}
-                    <div className="card activity-card">
-                        <div className="section-title" style={{ marginBottom: 16 }}>Recent activity</div>
-                        <table className="activity-table">
-                            <thead className="activity-thead">
-                                <tr>
-                                    {[
-                                        { label: "Rule name" },
-                                        { label: "Status" },
-                                        { label: "Products" },
-                                        { label: "Variants" },
-                                        { label: "Generated" },
-                                        { label: "Date" },
-                                    ].map(({ label }) => (
-                                        <th key={label}>
-                                            <span className="th-inner">{label}</span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {recentActivity.map((row, i) => (
-                                    <tr key={i}>
-                                        <td className="td-rule">{row.rule}</td>
-                                        <td>
-                                            <span className={`status-badge ${row.status === "Completed" ? "status-completed" : "status-failed"}`}>
-                                                {row.status}
-                                            </span>
-                                        </td>
-                                        <td className="td-number">{row.products}</td>
-                                        <td className="td-number">{row.variants}</td>
-                                        <td className="td-number">{row.generated}</td>
-                                        <td className="td-date">{row.date}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        <a href="#" className="link-view-all">
-                            View all history <ArrowRight />
-                        </a>
-                    </div>
+  // ─── Filter & Search State ────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [ruleTypeFilter, setRuleTypeFilter] = useState("All");
+  const [dateRange, setDateRange] = useState("May 14 – May 20, 2025");
+  const [activeTab, setActiveTab] = useState("All history");
 
-                </div>
-            </div>
-        </div>
-    );
+  // ─── Modal States ─────────────────────────────────────────────────────
+  const [selectedDetailRecord, setSelectedDetailRecord] = useState(null);
+  const [selectedSkusRecord, setSelectedSkusRecord] = useState(null);
+  const [selectedDeleteRecord, setSelectedDeleteRecord] = useState(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // ─── Filter Logic ─────────────────────────────────────────────────────
+  const filteredRecords = useMemo(() => {
+    return records.filter((rec) => {
+      // Tab filter
+      if (activeTab === "Successful" && rec.status !== "Completed") return false;
+      if (activeTab === "Failed" && rec.status !== "Failed") return false;
+
+      // Status dropdown filter
+      if (statusFilter !== "All" && rec.status !== statusFilter) return false;
+
+      // Rule type dropdown filter
+      if (ruleTypeFilter !== "All" && rec.ruleType !== ruleTypeFilter) return false;
+
+      // Search query filter
+      if (searchQuery.trim() !== "") {
+        const query = searchQuery.toLowerCase();
+        const matchRule = rec.rule.toLowerCase().includes(query);
+        const matchScope = rec.scope.toLowerCase().includes(query);
+        const matchId = rec.id.toLowerCase().includes(query);
+        const matchType = rec.ruleType.toLowerCase().includes(query);
+
+        if (!matchRule && !matchScope && !matchId && !matchType) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [records, activeTab, statusFilter, ruleTypeFilter, searchQuery]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || statusFilter !== "All" || ruleTypeFilter !== "All";
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("All");
+    setRuleTypeFilter("All");
+  };
+
+  // ─── Actions ──────────────────────────────────────────────────────────
+  const handleRunAgain = (record) => {
+    // Navigate to Generate SKU page with pre-filled state
+    navigate("/app/generate-sku");
+  };
+
+  const handleDuplicateRule = (record) => {
+    navigate("/app/generate-sku");
+  };
+
+  const handleDeleteConfirm = (id) => {
+    const updated = records.filter((r) => r.id !== id);
+    setRecords(updated);
+
+    // Update summary counts
+    setSummaryData((prev) => ({
+      ...prev,
+      totalExecuted: Math.max(0, prev.totalExecuted - 1),
+    }));
+
+    setSelectedDeleteRecord(null);
+  };
+
+  const handleExportConfirm = (format) => {
+    setIsExportModalOpen(false);
+    alert(`SKU History successfully exported as ${format.toUpperCase()}!`);
+  };
+
+  const handleRefresh = () => {
+    alert("History refreshed!");
+  };
+
+  return (
+    <div className="history-page-root">
+      <div className="history-page-inner">
+        {/* ── Header ───────────────────────────────────────────────── */}
+        <SkuHistoryHeader onExport={() => setIsExportModalOpen(true)} />
+
+        {/* ── Summary KPI Cards ────────────────────────────────────── */}
+        <HistorySummary summaryData={summaryData} />
+
+        {/* ── Search & Filter Controls ─────────────────────────────── */}
+        <HistoryFilters
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          ruleTypeFilter={ruleTypeFilter}
+          setRuleTypeFilter={setRuleTypeFilter}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          onClearFilters={handleClearFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
+
+        {/* ── History Table & Tabs ─────────────────────────────────── */}
+        <HistoryTable
+          records={filteredRecords}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onRefresh={handleRefresh}
+          onViewDetails={(rec) => setSelectedDetailRecord(rec)}
+          onViewGeneratedSkus={(rec) => setSelectedSkusRecord(rec)}
+          onRunAgain={handleRunAgain}
+          onDuplicateRule={handleDuplicateRule}
+          onDeleteRecord={(rec) => setSelectedDeleteRecord(rec)}
+        />
+      </div>
+
+      {/* ── Modals ──────────────────────────────────────────────────── */}
+      <ViewDetailsModal
+        record={selectedDetailRecord}
+        onClose={() => setSelectedDetailRecord(null)}
+      />
+
+      <ViewGeneratedSkusModal
+        record={selectedSkusRecord}
+        onClose={() => setSelectedSkusRecord(null)}
+      />
+
+      <DeleteHistoryModal
+        record={selectedDeleteRecord}
+        onClose={() => setSelectedDeleteRecord(null)}
+        onDeleteConfirm={handleDeleteConfirm}
+      />
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExportConfirm={handleExportConfirm}
+      />
+    </div>
+  );
 }
+
+export const headers = (headersArgs) => {
+  return boundary.headers(headersArgs);
+};
