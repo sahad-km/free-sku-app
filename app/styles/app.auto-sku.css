@@ -94,7 +94,7 @@
   border: 1px solid var(--border-color);
   background-color: #FFFFFF;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
@@ -170,10 +170,21 @@
   flex-shrink: 0;
 }
 
-.bg-purple-light { background-color: var(--light-purple); }
-.bg-green-light { background-color: var(--success-bg); }
-.bg-blue-light { background-color: #EFF6FF; }
-.bg-orange-light { background-color: var(--warning-bg); }
+.bg-purple-light {
+  background-color: var(--light-purple);
+}
+
+.bg-green-light {
+  background-color: var(--success-bg);
+}
+
+.bg-blue-light {
+  background-color: #EFF6FF;
+}
+
+.bg-orange-light {
+  background-color: var(--warning-bg);
+}
 
 .auto-summary-title {
   font-size: 13px;

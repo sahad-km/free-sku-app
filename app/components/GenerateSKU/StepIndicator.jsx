@@ -1,22 +1,22 @@
 import React from "react";
 import { ArrowRightIcon } from "./Icons";
 
-export default function StepIndicator({ activeStep = 1 }) {
+export default function StepIndicator({ activeStep = 1, onStepClick }) {
   const steps = [
     {
       number: 1,
-      title: "Build rule",
-      subtitle: "Design your SKU structure",
+      title: "1. Configure Rule",
+      subtitle: "Design SKU structure",
     },
     {
       number: 2,
-      title: "Select scope",
-      subtitle: "Choose products & variants",
+      title: "2. Select Scope",
+      subtitle: "Choose target products & variants",
     },
     {
       number: 3,
-      title: "Review & generate",
-      subtitle: "Preview and confirm",
+      title: "3. Preview & Confirm",
+      subtitle: "Review SKUs and confirm run",
     },
   ];
 
@@ -33,6 +33,8 @@ export default function StepIndicator({ activeStep = 1 }) {
                 className={`step-item ${isActive ? "step-active" : ""} ${
                   isCompleted ? "step-completed" : ""
                 }`}
+                onClick={() => onStepClick && onStepClick(step.number)}
+                style={{ cursor: onStepClick ? "pointer" : "default" }}
               >
                 <div className={`step-badge ${isActive ? "badge-active" : ""}`}>
                   {step.number}

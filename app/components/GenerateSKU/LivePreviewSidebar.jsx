@@ -16,16 +16,23 @@ export default function LivePreviewSidebar({
   removeSpaces,
   capitalizeAll,
   onViewFullPreview,
+  previewProducts = [],
 }) {
+  const productsToDisplay = previewProducts.length > 0 ? previewProducts : initialProducts;
+
   const renderProductIcon = (prod) => {
-    if (prod.type === "Gift Card") {
+    if (prod.image) {
       return (
-        <div className="gift-card-icon-box">
-          🎁
-        </div>
+        <img
+          src={prod.image}
+          alt={prod.title}
+          style={{ width: "32px", height: "32px", borderRadius: "6px", objectFit: "cover" }}
+        />
       );
     }
-    // Snowboard icon representation
+    if (prod.type === "Gift Card") {
+      return <div className="gift-card-icon-box">🎁</div>;
+    }
     return (
       <div className={`snowboard-icon-box ${prod.thumbnailBg || "bg-teal"}`}>
         <span className="snowboard-pill board-left" />
@@ -42,7 +49,7 @@ export default function LivePreviewSidebar({
       </div>
 
       <div className="live-preview-list">
-        {initialProducts.map((product, idx) => {
+        {productsToDisplay.slice(0, 5).map((product, idx) => {
           const skuVal = generatePreviewSku({
             product,
             index: idx,
@@ -61,7 +68,7 @@ export default function LivePreviewSidebar({
           });
 
           return (
-            <div key={product.id} className="preview-product-item">
+            <div key={product.id || idx} className="preview-product-item">
               <div className="product-thumb-container">
                 {renderProductIcon(product)}
               </div>

@@ -797,9 +797,17 @@
   border-radius: 2px;
 }
 
-.bg-teal .snowboard-pill { background-color: #0D9488; }
-.bg-purple .snowboard-pill { background-color: #7C3AED; }
-.bg-cyan .snowboard-pill { background-color: #0284C7; }
+.bg-teal .snowboard-pill {
+  background-color: #0D9488;
+}
+
+.bg-purple .snowboard-pill {
+  background-color: #7C3AED;
+}
+
+.bg-cyan .snowboard-pill {
+  background-color: #0284C7;
+}
 
 .gift-card-icon-box {
   font-size: 20px;
@@ -1121,8 +1129,13 @@
   padding: 20px;
 }
 
-.mb-12 { margin-bottom: 12px; }
-.mb-16 { margin-bottom: 16px; }
+.mb-12 {
+  margin-bottom: 12px;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
 
 .radio-group-inline {
   display: flex;
@@ -1158,7 +1171,7 @@
   border: 1px solid var(--border-color);
   background-color: #FFFFFF;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 

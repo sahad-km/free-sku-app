@@ -1,6 +1,8 @@
 import React from "react";
+import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { getDashboardData } from "../services/dashboard.server";
 import DashboardHeader from "../components/Dashboard/DashboardHeader";
 import StatCard from "../components/Dashboard/StatCard";
 import GenerationTrend from "../components/Dashboard/GenerationTrend";
@@ -8,20 +10,25 @@ import QuickActions from "../components/Dashboard/QuickActions";
 import RecentActivity from "../components/Dashboard/RecentActivity";
 import RecommendationCard from "../components/Dashboard/RecommendationCard";
 import {
-  kpiData,
-  chartData,
   quickActionsData,
-  recentActivityData,
   recommendationsData,
 } from "../components/Dashboard/mockData";
 import "../styles/app._index.css";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
+  const { admin, session } = await authenticate.admin(request);
+  const data = await getDashboardData({ admin, session });
+  return data;
 };
 
 export default function DashboardPage() {
+  const loaderData = useLoaderData() || {};
+  const {
+    kpiData = [],
+    chartData = [],
+    recentActivityData = [],
+  } = loaderData;
+
   return (
     <div className="dashboard-root">
       <div className="dashboard-inner">
