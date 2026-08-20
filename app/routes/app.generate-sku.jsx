@@ -66,7 +66,7 @@ export const loader = async ({ request }) => {
         estimatedCredits: counts.estimatedCredits || counts.totalVariants,
       };
     }
-    const previewRes = await resolveSkuSelection({ admin, selection: { type: "ALL_PRODUCTS" }, limit: 10 });
+    const previewRes = await resolveSkuSelection({ admin, selection: { type: "ALL_PRODUCTS" }, limit: 250 });
     previewProducts = previewRes.products || [];
   } catch (err) {
     console.warn("Loader preview products warning:", err.message);
@@ -98,8 +98,9 @@ export default function GenerateSkuPage() {
       estimatedCredits: 93,
     }
   );
-  const [previewProducts] = useState(loaderData.initialPreviewProducts || []);
+  const [previewProducts, setPreviewProducts] = useState(loaderData.initialPreviewProducts || []);
   const [isLoadingCounts, setIsLoadingCounts] = useState(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   // ─── Form Configuration State (Step 1) ──────────────────────────────────
   const [prefix, setPrefix] = useState("STRT");
@@ -118,17 +119,16 @@ export default function GenerateSkuPage() {
   const [capitalizeAll, setCapitalizeAll] = useState(false);
 
   const [skuComponents, setSkuComponents] = useState([
-    { id: "prefix_1", type: "prefix", label: "Prefix", value: "STRT" },
-    { id: "body_1", type: "body", label: "Body", value: "0001" },
-    { id: "suffix_1", type: "suffix", label: "Suffix", value: "END" },
+    { id: "body_1", type: "body", label: "Body", name: "Body", value: "0001" },
   ]);
 
-  const [productMetafield, setProductMetafield] = useState("");
-  const [variantMetafield, setVariantMetafield] = useState("");
-  const [productVendor, setProductVendor] = useState("");
-  const [variantOption1, setVariantOption1] = useState("");
-  const [productType, setProductType] = useState("");
-  const [variantOption2, setVariantOption2] = useState("");
+  const [productNameChar, setProductNameChar] = useState("");
+  const [variantNameChar, setVariantNameChar] = useState("");
+  const [productTypeChar, setProductTypeChar] = useState("");
+  const [vendorChar, setVendorChar] = useState("");
+  const [variantOption1Char, setVariantOption1Char] = useState("");
+  const [variantOption2Char, setVariantOption2Char] = useState("");
+  const [variantOption3Char, setVariantOption3Char] = useState("");
 
   const [separator, setSeparator] = useState("none");
   const [customSeparator, setCustomSeparator] = useState("");
@@ -144,6 +144,72 @@ export default function GenerateSkuPage() {
   const [isAddComponentModalOpen, setIsAddComponentModalOpen] = useState(false);
   const [isFullPreviewModalOpen, setIsFullPreviewModalOpen] = useState(false);
   const [isRuleSummaryModalOpen, setIsRuleSummaryModalOpen] = useState(false);
+
+  // Helper to sync Extra Component character selections with SKU Layout components
+  const handleExtraComponentCharChange = (compType, label, val, setCharState) => {
+    setCharState(val);
+
+    setSkuComponents((prevComponents) => {
+      const existingIndex = prevComponents.findIndex(
+        (c) => c.type === compType || (compType === "productVendor" && c.type === "vendor")
+      );
+
+      if (!val) {
+        // Disabled / Not included -> Remove from skuComponents array
+        return prevComponents.filter(
+          (c) => c.type !== compType && !(compType === "productVendor" && c.type === "vendor")
+        );
+      }
+
+      const sampleValues = {
+        productTitle: "Snowboard",
+        variantTitle: "Black/L",
+        productType: "Snowboard",
+        productVendor: "Burton",
+        variantOption1: "Large",
+        variantOption2: "Black",
+        variantOption3: "Pro",
+      };
+
+      const sampleVal = sampleValues[compType] || "VAL";
+
+      if (existingIndex >= 0) {
+        const updated = [...prevComponents];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          charLength: val,
+        };
+        return updated;
+      } else {
+        const newComp = {
+          id: `${compType}_${Date.now()}`,
+          type: compType,
+          label: label,
+          name: label,
+          value: sampleVal,
+          charLength: val,
+        };
+
+        return [...prevComponents, newComp];
+      }
+    });
+  };
+
+  const handleRemoveComponentFromLayout = (compType, compId) => {
+    if (compType === "body") {
+      alert("Body component is required in the SKU layout.");
+      return;
+    }
+    setSkuComponents((prev) => prev.filter((c) => c.id !== compId));
+
+    if (compType === "productTitle" || compType === "productName") setProductNameChar("");
+    if (compType === "variantTitle" || compType === "variantName") setVariantNameChar("");
+    if (compType === "productType" || compType === "type") setProductTypeChar("");
+    if (compType === "productVendor" || compType === "vendor") setVendorChar("");
+    if (compType === "variantOption1" || compType === "option1") setVariantOption1Char("");
+    if (compType === "variantOption2" || compType === "option2") setVariantOption2Char("");
+    if (compType === "variantOption3" || compType === "option3") setVariantOption3Char("");
+  };
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   const handleSaveDraft = () => {
@@ -180,9 +246,43 @@ export default function GenerateSkuPage() {
     }
   };
 
+  const fetchPreviewProducts = async (targetSelection) => {
+    setIsLoadingPreview(true);
+    try {
+      const response = await fetch("/api/generate-sku/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selection: targetSelection,
+          limit: 250,
+        }),
+      });
+      const resJson = await response.json();
+      setIsLoadingPreview(false);
+      if (resJson.success) {
+        if (resJson.items && Array.isArray(resJson.items)) {
+          setPreviewProducts(resJson.items);
+        }
+        if (resJson.selectionSummary) {
+          setScopeCounts({
+            totalProducts: resJson.selectionSummary.products,
+            totalVariants: resJson.selectionSummary.variants,
+            variantsWithSku: resJson.selectionSummary.variantsWithSku,
+            variantsWithoutSku: resJson.selectionSummary.variantsWithoutSku,
+            estimatedCredits: resJson.selectionSummary.estimatedCredits,
+          });
+        }
+      }
+    } catch (err) {
+      setIsLoadingPreview(false);
+      console.warn("Fetch preview dataset warning:", err.message);
+    }
+  };
+
   const handleApplySelection = (newSelection) => {
     setSelection(newSelection);
     fetchScopeCounts(newSelection);
+    fetchPreviewProducts(newSelection);
   };
 
   const handleConfirmGenerate = async () => {
@@ -197,6 +297,13 @@ export default function GenerateSkuPage() {
       numberPadding: parseInt(numberPadding, 10) || 4,
       incrementStep: parseInt(incrementStep, 10) || 1,
       randomDigits: parseInt(randomDigits, 10) || 4,
+      productNameChar,
+      variantNameChar,
+      productTypeChar,
+      vendorChar,
+      variantOption1Char,
+      variantOption2Char,
+      variantOption3Char,
       skuComponents,
       separator,
       customSeparator,
@@ -247,6 +354,13 @@ export default function GenerateSkuPage() {
     incrementStep,
     randomDigits,
     lastSequenceNumber,
+    productNameChar,
+    variantNameChar,
+    productTypeChar,
+    vendorChar,
+    variantOption1Char,
+    variantOption2Char,
+    variantOption3Char,
     skuComponents,
     separator,
     customSeparator,
@@ -256,9 +370,14 @@ export default function GenerateSkuPage() {
   };
 
   const handleHeaderNext = () => {
-    if (activeStep === 1) setActiveStep(2);
-    else if (activeStep === 2) setActiveStep(3);
-    else if (activeStep === 3) handleConfirmGenerate();
+    if (activeStep === 1) {
+      setActiveStep(2);
+    } else if (activeStep === 2) {
+      fetchPreviewProducts(selection);
+      setActiveStep(3);
+    } else if (activeStep === 3) {
+      handleConfirmGenerate();
+    }
   };
 
   return (
@@ -321,26 +440,24 @@ export default function GenerateSkuPage() {
               <SkuLayoutSection
                 skuComponents={skuComponents}
                 setSkuComponents={setSkuComponents}
-                onOpenAddComponent={() => setIsAddComponentModalOpen(true)}
+                onRemoveComponent={handleRemoveComponentFromLayout}
               />
 
               <ExtraComponentsSection
-                productMetafield={productMetafield}
-                setProductMetafield={setProductMetafield}
-                variantMetafield={variantMetafield}
-                setVariantMetafield={setVariantMetafield}
-                productVendor={productVendor}
-                setProductVendor={setProductVendor}
-                variantOption1={variantOption1}
-                setVariantOption1={setVariantOption1}
-                productType={productType}
-                setProductType={setProductType}
-                variantOption2={variantOption2}
-                setVariantOption2={setVariantOption2}
-                onAddMetafieldCustom={(lvl) => {
-                  setMetafieldModalDefaultLevel(lvl === "variantMetafield" ? "variant" : "product");
-                  setIsMetafieldModalOpen(true);
-                }}
+                productNameChar={productNameChar}
+                onProductNameCharChange={(val) => handleExtraComponentCharChange("productTitle", "Product Name", val, setProductNameChar)}
+                variantNameChar={variantNameChar}
+                onVariantNameCharChange={(val) => handleExtraComponentCharChange("variantTitle", "Variant Name", val, setVariantNameChar)}
+                productTypeChar={productTypeChar}
+                onProductTypeCharChange={(val) => handleExtraComponentCharChange("productType", "Product Type", val, setProductTypeChar)}
+                vendorChar={vendorChar}
+                onVendorCharChange={(val) => handleExtraComponentCharChange("productVendor", "Vendor", val, setVendorChar)}
+                variantOption1Char={variantOption1Char}
+                onVariantOption1CharChange={(val) => handleExtraComponentCharChange("variantOption1", "Variant Option 1", val, setVariantOption1Char)}
+                variantOption2Char={variantOption2Char}
+                onVariantOption2CharChange={(val) => handleExtraComponentCharChange("variantOption2", "Variant Option 2", val, setVariantOption2Char)}
+                variantOption3Char={variantOption3Char}
+                onVariantOption3CharChange={(val) => handleExtraComponentCharChange("variantOption3", "Variant Option 3", val, setVariantOption3Char)}
               />
 
               <SeparatorSection
@@ -420,12 +537,6 @@ export default function GenerateSkuPage() {
         onClose={() => setIsMetafieldModalOpen(false)}
         onAddMetafield={(obj) => setSkuComponents((prev) => [...prev, obj])}
         defaultLevel={metafieldModalDefaultLevel}
-      />
-
-      <AddComponentModal
-        isOpen={isAddComponentModalOpen}
-        onClose={() => setIsAddComponentModalOpen(false)}
-        onSelectComponent={(obj) => setSkuComponents((prev) => [...prev, obj])}
       />
 
       <FullPreviewModal

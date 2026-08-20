@@ -1,35 +1,33 @@
 import React, { useState } from "react";
-import { ChevronUpIcon, ChevronDownIcon, PlusIcon } from "./Icons";
+import { ChevronUpIcon, ChevronDownIcon } from "./Icons";
 
 export default function ExtraComponentsSection({
-  productMetafield,
-  setProductMetafield,
-  variantMetafield,
-  setVariantMetafield,
-  productVendor,
-  setProductVendor,
-  variantOption1,
-  setVariantOption1,
-  productType,
-  setProductType,
-  variantOption2,
-  setVariantOption2,
-  onAddMetafieldCustom,
+  productNameChar = "",
+  onProductNameCharChange,
+  variantNameChar = "",
+  onVariantNameCharChange,
+  productTypeChar = "",
+  onProductTypeCharChange,
+  vendorChar = "",
+  onVendorCharChange,
+  variantOption1Char = "",
+  onVariantOption1CharChange,
+  variantOption2Char = "",
+  onVariantOption2CharChange,
+  variantOption3Char = "",
+  onVariantOption3CharChange,
 }) {
   const [isOpen, setIsOpen] = useState(true);
 
-  const handleSelectChange = (val, type) => {
-    if (val === "__ADD_NEW__") {
-      onAddMetafieldCustom(type);
-      return;
-    }
-    if (type === "productMetafield") setProductMetafield(val);
-    if (type === "variantMetafield") setVariantMetafield(val);
-    if (type === "productVendor") setProductVendor(val);
-    if (type === "variantOption1") setVariantOption1(val);
-    if (type === "productType") setProductType(val);
-    if (type === "variantOption2") setVariantOption2(val);
-  };
+  const charLengthOptions = [
+    { value: "", label: "Disabled / Not included" },
+    { value: "full", label: "Full characters" },
+    { value: "1", label: "First 1 char" },
+    { value: "2", label: "First 2 char" },
+    { value: "3", label: "First 3 char" },
+    { value: "4", label: "First 4 char" },
+    { value: "5", label: "First 5 char" },
+  ];
 
   return (
     <div className="card section-card">
@@ -47,7 +45,7 @@ export default function ExtraComponentsSection({
               <span className="paid-pill-badge">Paid</span>
             </div>
             <p className="section-subtitle">
-              Add product or variant metafields to enrich your SKU.
+              Configure character length rules for product and variant details to add them to your SKU layout.
             </p>
           </div>
         </div>
@@ -59,37 +57,20 @@ export default function ExtraComponentsSection({
       {isOpen && (
         <div className="section-card-body">
           <div className="extra-components-grid">
-            {/* Left Column: Product level */}
+            {/* Left Column: Product Level Components */}
             <div className="extra-col">
               <div className="field-group">
-                <label className="field-label">Product metafield</label>
+                <label className="field-label">Product name</label>
                 <select
                   className="select-input"
-                  value={productMetafield}
-                  onChange={(e) =>
-                    handleSelectChange(e.target.value, "productMetafield")
-                  }
+                  value={productNameChar}
+                  onChange={(e) => onProductNameCharChange && onProductNameCharChange(e.target.value)}
                 >
-                  <option value="">Select metafield</option>
-                  <option value="custom.material">custom.material</option>
-                  <option value="custom.season">custom.season</option>
-                  <option value="custom.brand">custom.brand</option>
-                  <option value="__ADD_NEW__">+ Add new (Namespace + Key)...</option>
-                </select>
-              </div>
-
-              <div className="field-group">
-                <label className="field-label">Product vendor</label>
-                <select
-                  className="select-input"
-                  value={productVendor}
-                  onChange={(e) =>
-                    handleSelectChange(e.target.value, "productVendor")
-                  }
-                >
-                  <option value="">Select metafield</option>
-                  <option value="vendor.name">Vendor name</option>
-                  <option value="vendor.code">Vendor code</option>
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -97,34 +78,14 @@ export default function ExtraComponentsSection({
                 <label className="field-label">Product type</label>
                 <select
                   className="select-input"
-                  value={productType}
-                  onChange={(e) =>
-                    handleSelectChange(e.target.value, "productType")
-                  }
+                  value={productTypeChar}
+                  onChange={(e) => onProductTypeCharChange && onProductTypeCharChange(e.target.value)}
                 >
-                  <option value="">Select metafield</option>
-                  <option value="type.category">Category type</option>
-                  <option value="type.code">Type code</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Right Column: Variant level */}
-            <div className="extra-col">
-              <div className="field-group">
-                <label className="field-label">Variant metafield</label>
-                <select
-                  className="select-input"
-                  value={variantMetafield}
-                  onChange={(e) =>
-                    handleSelectChange(e.target.value, "variantMetafield")
-                  }
-                >
-                  <option value="">Select metafield</option>
-                  <option value="custom.color">custom.color</option>
-                  <option value="custom.size">custom.size</option>
-                  <option value="custom.style">custom.style</option>
-                  <option value="__ADD_NEW__">+ Add new (Namespace + Key)...</option>
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -132,14 +93,62 @@ export default function ExtraComponentsSection({
                 <label className="field-label">Variant option 1</label>
                 <select
                   className="select-input"
-                  value={variantOption1}
-                  onChange={(e) =>
-                    handleSelectChange(e.target.value, "variantOption1")
-                  }
+                  value={variantOption1Char}
+                  onChange={(e) => onVariantOption1CharChange && onVariantOption1CharChange(e.target.value)}
                 >
-                  <option value="">Select metafield</option>
-                  <option value="option.size">Size (Option 1)</option>
-                  <option value="option.color">Color (Option 1)</option>
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field-group">
+                <label className="field-label">Variant option 3</label>
+                <select
+                  className="select-input"
+                  value={variantOption3Char}
+                  onChange={(e) => onVariantOption3CharChange && onVariantOption3CharChange(e.target.value)}
+                >
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Right Column: Variant Level Components */}
+            <div className="extra-col">
+              <div className="field-group">
+                <label className="field-label">Variant name</label>
+                <select
+                  className="select-input"
+                  value={variantNameChar}
+                  onChange={(e) => onVariantNameCharChange && onVariantNameCharChange(e.target.value)}
+                >
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field-group">
+                <label className="field-label">Vendor</label>
+                <select
+                  className="select-input"
+                  value={vendorChar}
+                  onChange={(e) => onVendorCharChange && onVendorCharChange(e.target.value)}
+                >
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -147,14 +156,14 @@ export default function ExtraComponentsSection({
                 <label className="field-label">Variant option 2</label>
                 <select
                   className="select-input"
-                  value={variantOption2}
-                  onChange={(e) =>
-                    handleSelectChange(e.target.value, "variantOption2")
-                  }
+                  value={variantOption2Char}
+                  onChange={(e) => onVariantOption2CharChange && onVariantOption2CharChange(e.target.value)}
                 >
-                  <option value="">Select metafield</option>
-                  <option value="option.style">Style (Option 2)</option>
-                  <option value="option.material">Material (Option 2)</option>
+                  {charLengthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

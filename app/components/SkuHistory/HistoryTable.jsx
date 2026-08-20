@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   EyeIcon,
   DotsHorizontalIcon,
@@ -10,7 +10,7 @@ import {
 } from "./Icons";
 
 export default function HistoryTable({
-  records,
+  records = [],
   activeTab,
   setActiveTab,
   onRefresh,
@@ -24,12 +24,63 @@ export default function HistoryTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Reset to page 1 whenever activeTab or records change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, records.length]);
+
   const handleToggleMenu = (id, e) => {
     e.stopPropagation();
     setOpenMenuId(openMenuId === id ? null : id);
   };
 
   const closeMenu = () => setOpenMenuId(null);
+
+  // Dynamic pagination math
+  const totalRecords = records.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / itemsPerPage));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+
+  const startIndex = (validCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalRecords);
+  const pagedRecords = records.slice(startIndex, endIndex);
+
+  const renderPaginationButtons = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (validCurrentPage > 3) pages.push("...");
+      const start = Math.max(2, validCurrentPage - 1);
+      const end = Math.min(totalPages - 1, validCurrentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (validCurrentPage < totalPages - 2) pages.push("...");
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+
+    return pages.map((p, idx) => {
+      if (p === "...") {
+        return (
+          <span key={`ellipsis_${idx}`} className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      return (
+        <button
+          key={`page_${p}`}
+          className={`btn-page-number ${p === validCurrentPage ? "page-active" : ""}`}
+          onClick={() => setCurrentPage(p)}
+          type="button"
+        >
+          {p}
+        </button>
+      );
+    });
+  };
 
   return (
     <div className="card table-card" onClick={closeMenu}>
@@ -79,7 +130,7 @@ export default function HistoryTable({
             </tr>
           </thead>
           <tbody>
-            {records.length === 0 ? (
+            {pagedRecords.length === 0 ? (
               <tr>
                 <td colSpan={8} className="td-empty">
                   <div className="empty-table-state">
@@ -91,33 +142,33 @@ export default function HistoryTable({
                 </td>
               </tr>
             ) : (
-              records.map((row) => {
+              pagedRecords.map((row) => {
                 const isMenuOpen = openMenuId === row.id;
                 return (
                   <tr key={row.id}>
                     {/* Rule Name */}
                     <td className="td-rule-col">
                       <div className="rule-cell-content">
-                        <div className={`rule-icon-box ${row.iconBg}`}>
-                          <DocumentIcon size={16} color={row.iconColor} />
+                        <div className={`rule-icon-box ${row.iconBg || "bg-purple-light"}`}>
+                          <DocumentIcon size={16} color={row.iconColor || "#5B3DF5"} />
                         </div>
                         <div>
-                          <div className="rule-name-text">{row.rule}</div>
-                          <div className="rule-type-subtext">{row.ruleType}</div>
+                          <div className="rule-name-text">{row.rule || row.ruleName}</div>
+                          <div className="rule-type-subtext">{row.ruleType || "Manual run"}</div>
                         </div>
                       </div>
                     </td>
 
                     {/* Scope */}
                     <td>
-                      <div className="scope-name-text">{row.scope}</div>
-                      <div className="scope-count-subtext">{row.scopeCount}</div>
+                      <div className="scope-name-text">{row.scope || "All products"}</div>
+                      <div className="scope-count-subtext">{row.scopeCount || ""}</div>
                     </td>
 
                     {/* Counts */}
-                    <td className="td-number">{row.products}</td>
-                    <td className="td-number">{row.variants}</td>
-                    <td className="td-number font-mono">{row.generated}</td>
+                    <td className="td-number">{row.products ?? row.productsProcessed ?? 0}</td>
+                    <td className="td-number">{row.variants ?? row.variantsProcessed ?? 0}</td>
+                    <td className="td-number font-mono">{row.generated ?? row.generatedSkusCount ?? "—"}</td>
 
                     {/* Status Badge */}
                     <td>
@@ -232,36 +283,42 @@ export default function HistoryTable({
       {/* ── Pagination Footer ─────────────────────────────────────── */}
       <div className="table-pagination-footer">
         <div className="pagination-info-text">
-          Showing 1 to {records.length} of 24 results
+          {totalRecords === 0
+            ? "Showing 0 of 0 results"
+            : `Showing ${startIndex + 1} to ${endIndex} of ${totalRecords} results`}
         </div>
 
         <div className="pagination-controls-row">
-          <button className="btn-pagination-nav" disabled type="button">
-            <ChevronLeftIcon size={14} color="#9CA3AF" />
+          <button
+            className="btn-pagination-nav"
+            disabled={validCurrentPage <= 1}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            type="button"
+          >
+            <ChevronLeftIcon size={14} color={validCurrentPage <= 1 ? "#9CA3AF" : "#374151"} />
+            <span>Prev</span>
           </button>
-          <button className="btn-page-number page-active" type="button">
-            1
-          </button>
-          <button className="btn-page-number" type="button">
-            2
-          </button>
-          <button className="btn-page-number" type="button">
-            3
-          </button>
-          <button className="btn-page-number" type="button">
-            4
-          </button>
-          <span className="pagination-ellipsis">...</span>
-          <button className="btn-pagination-nav" type="button">
+
+          {renderPaginationButtons()}
+
+          <button
+            className="btn-pagination-nav"
+            disabled={validCurrentPage >= totalPages}
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            type="button"
+          >
             <span>Next</span>
-            <ChevronRightIcon size={14} color="#374151" />
+            <ChevronRightIcon size={14} color={validCurrentPage >= totalPages ? "#9CA3AF" : "#374151"} />
           </button>
         </div>
 
         <div className="per-page-selector">
           <select
             value={itemsPerPage}
-            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
             className="per-page-select-input"
           >
             <option value={10}>10 per page</option>

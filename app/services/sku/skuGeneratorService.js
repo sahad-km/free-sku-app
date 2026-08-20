@@ -159,75 +159,93 @@ export function generateSkuForVariant({
     randomDigits,
   });
 
-  // If no skuComponents array was provided or it's empty, use standard Prefix-Body-Suffix
-  let componentsToUse = skuComponents;
-  if (!Array.isArray(componentsToUse) || componentsToUse.length === 0) {
-    componentsToUse = [
-      { type: "prefix", value: prefix },
-      { type: "body", value: numericBodyVal },
-      { type: "suffix", value: suffix },
-    ];
-  }
+  // Evaluate middle components in the user's configured drag-and-drop layout order
+  const middleComponentsToUse = (Array.isArray(skuComponents) ? skuComponents : []).filter(
+    (comp) => comp.type !== "prefix" && comp.type !== "suffix"
+  );
 
-  // Build component values
-  const parts = componentsToUse.map((comp) => {
+  const middleParts = middleComponentsToUse.map((comp) => {
     const compType = comp.type;
 
-    if (compType === "prefix") {
-      return prefix || comp.value || "";
-    }
     if (compType === "body") {
       if (bodyNumberType === "disabled") return "";
       return numericBodyVal;
     }
-    if (compType === "suffix") {
-      return suffix || comp.value || "";
-    }
     if (compType === "productTitle" || compType === "productName") {
-      return product.title || "";
+      const raw = product.title || "";
+      const setting = comp.charLength || config.productNameChar;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "productVendor" || compType === "vendor") {
-      return product.vendor || "";
+      const raw = product.vendor || "";
+      const setting = comp.charLength || config.vendorChar;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "productType" || compType === "type") {
-      return product.productType || product.type || "";
+      const raw = product.productType || product.type || "";
+      const setting = comp.charLength || config.productTypeChar;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "variantTitle" || compType === "variantName") {
-      return variant.title || "";
+      const raw = variant.title || "";
+      const setting = comp.charLength || config.variantNameChar;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "variantOption1" || compType === "option1") {
-      return variant.option1 || (variant.selectedOptions && variant.selectedOptions[0]?.value) || "";
+      const raw = variant.option1 || (variant.selectedOptions && variant.selectedOptions[0]?.value) || "";
+      const setting = comp.charLength || config.variantOption1Char;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "variantOption2" || compType === "option2") {
-      return variant.option2 || (variant.selectedOptions && variant.selectedOptions[1]?.value) || "";
+      const raw = variant.option2 || (variant.selectedOptions && variant.selectedOptions[1]?.value) || "";
+      const setting = comp.charLength || config.variantOption2Char;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "variantOption3" || compType === "option3") {
-      return variant.option3 || (variant.selectedOptions && variant.selectedOptions[2]?.value) || "";
+      const raw = variant.option3 || (variant.selectedOptions && variant.selectedOptions[2]?.value) || "";
+      const setting = comp.charLength || config.variantOption3Char;
+      if (!setting || setting === "full") return raw;
+      const len = parseInt(setting, 10);
+      return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
     }
     if (compType === "oldSku" || compType === "currentSku") {
       return currentSku;
-    }
-    if (compType === "productMetafield") {
-      const ns = comp.namespace || (comp.value && comp.value.split(".")[0]);
-      const k = comp.key || (comp.value && comp.value.split(".")[1]);
-      return getMetafieldValue(product, ns, k) || comp.fallback || "";
-    }
-    if (compType === "variantMetafield") {
-      const ns = comp.namespace || (comp.value && comp.value.split(".")[0]);
-      const k = comp.key || (comp.value && comp.value.split(".")[1]);
-      return getMetafieldValue(variant, ns, k) || comp.fallback || "";
     }
 
     return comp.value || "";
   });
 
-  // Apply removeSpaces to individual parts
-  const cleanedParts = parts
-    .map((p) => cleanPartText(p, { removeSpaces }))
-    .filter((p) => p !== null && p !== undefined && p !== "");
+  // Assemble full SKU: Fixed Prefix -> Draggable Middle Parts -> Fixed Suffix
+  const activeParts = [];
+  if (prefix && String(prefix).trim()) {
+    activeParts.push(cleanPartText(prefix, { removeSpaces }));
+  }
+
+  middleParts.forEach((p) => {
+    const cleaned = cleanPartText(p, { removeSpaces });
+    if (cleaned !== null && cleaned !== undefined && cleaned !== "") {
+      activeParts.push(cleaned);
+    }
+  });
+
+  if (suffix && String(suffix).trim()) {
+    activeParts.push(cleanPartText(suffix, { removeSpaces }));
+  }
 
   // Join parts with separator
-  let finalSku = cleanedParts.join(sep);
+  let finalSku = activeParts.join(sep);
 
   if (capitalizeAll) {
     finalSku = finalSku.toUpperCase();

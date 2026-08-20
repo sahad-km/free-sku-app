@@ -111,18 +111,13 @@ export function AddComponentModal({ isOpen, onClose, onSelectComponent }) {
     { type: "prefix", label: "Prefix", desc: "Custom prefix string", value: "STRT" },
     { type: "body", label: "Body", desc: "Main numeric/string body", value: "0001" },
     { type: "suffix", label: "Suffix", desc: "Custom suffix string", value: "END" },
-    {
-      type: "productMetafield",
-      label: "Product metafield",
-      desc: "Metafield attached to product",
-      value: "custom.material",
-    },
-    {
-      type: "variantMetafield",
-      label: "Variant metafield",
-      desc: "Metafield attached to variant",
-      value: "custom.color",
-    },
+    { type: "productTitle", label: "Product Name", desc: "Title of the product", value: "Snowboard" },
+    { type: "variantTitle", label: "Variant Name", desc: "Title of the variant", value: "Black/L" },
+    { type: "productType", label: "Product Type", desc: "Category/type of product", value: "Snowboard" },
+    { type: "productVendor", label: "Vendor", desc: "Vendor or brand name", value: "Burton" },
+    { type: "variantOption1", label: "Variant Option 1", desc: "First variant option (e.g. Size)", value: "Large" },
+    { type: "variantOption2", label: "Variant Option 2", desc: "Second variant option (e.g. Color)", value: "Black" },
+    { type: "variantOption3", label: "Variant Option 3", desc: "Third variant option (e.g. Style)", value: "Pro" },
   ];
 
   return (
@@ -188,12 +183,12 @@ export function RuleSummaryModal({ isOpen, onClose, config = {} }) {
               {config.bodyNumberType === "random"
                 ? `(${config.randomDigits || 4} digits)`
                 : config.bodyNumberType === "disabled"
-                ? "(Disabled)"
-                : config.bodyNumberType === "productId"
-                ? "(Product ID numeric)"
-                : config.bodyNumberType === "variantId"
-                ? "(Variant ID numeric)"
-                : `(Start: ${config.startNumber || 1}, Padding: ${config.numberPadding || 4})`}
+                  ? "(Disabled)"
+                  : config.bodyNumberType === "productId"
+                    ? "(Product ID numeric)"
+                    : config.bodyNumberType === "variantId"
+                      ? "(Variant ID numeric)"
+                      : `(Start: ${config.startNumber || 1}, Padding: ${config.numberPadding || 4})`}
             </div>
             <div><strong>Suffix:</strong> {config.suffix || "—"}</div>
             <div><strong>Separator:</strong> {config.separator || "none"}</div>
@@ -206,11 +201,11 @@ export function RuleSummaryModal({ isOpen, onClose, config = {} }) {
           </div>
         </div>
 
-        <div className="modal-actions">
+        {/* <div className="modal-actions">
           <button className="btn-modal-cancel" onClick={onClose} type="button">
             Close
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

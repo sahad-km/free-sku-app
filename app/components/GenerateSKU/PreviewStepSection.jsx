@@ -28,64 +28,34 @@ export default function PreviewStepSection({
   onOpenRuleSummary,
   isGenerating = false,
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("TITLE_ASC");
   const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // Mock / Sample dataset derived from previewProducts or high-quality default fallback matching design image
-  const defaultItems = [
-    {
-      product: { id: "gid://shopify/Product/1111111", title: "Classic Hoodie", image: "https://cdn.shopify.com/s/files/1/0000/0000/products/hoodie.jpg" },
-      variant: { id: "gid://shopify/ProductVariant/2222222", title: "Black / Medium" },
-      currentSku: "HOOD-BLK-M",
-      rawVariant: { title: "Black / Medium", options: [{ name: "Color", value: "Black" }, { name: "Size", value: "Medium" }] },
-      rawProduct: { title: "Classic Hoodie", vendor: "StoreVendor", productType: "Apparel" },
-    },
-    {
-      product: { id: "gid://shopify/Product/1111112", title: "Premium T-Shirt", image: "https://cdn.shopify.com/s/files/1/0000/0000/products/tshirt.jpg" },
-      variant: { id: "gid://shopify/ProductVariant/2222223", title: "White / Large" },
-      currentSku: "TSH-WHT-L",
-      rawVariant: { title: "White / Large", options: [{ name: "Color", value: "White" }, { name: "Size", value: "Large" }] },
-      rawProduct: { title: "Premium T-Shirt", vendor: "StoreVendor", productType: "Apparel" },
-    },
-    {
-      product: { id: "gid://shopify/Product/1111113", title: "Denim Jacket", image: "https://cdn.shopify.com/s/files/1/0000/0000/products/jacket.jpg" },
-      variant: { id: "gid://shopify/ProductVariant/2222224", title: "Blue / Small" },
-      currentSku: "DEN-BLU-S",
-      rawVariant: { title: "Blue / Small", options: [{ name: "Color", value: "Blue" }, { name: "Size", value: "Small" }] },
-      rawProduct: { title: "Denim Jacket", vendor: "StoreVendor", productType: "Apparel" },
-    },
-    {
-      product: { id: "gid://shopify/Product/1111114", title: "Sneaker Collection", image: "https://cdn.shopify.com/s/files/1/0000/0000/products/sneaker.jpg" },
-      variant: { id: "gid://shopify/ProductVariant/2222225", title: "Red / 42" },
-      currentSku: null,
-      rawVariant: { title: "Red / 42", options: [{ name: "Color", value: "Red" }, { name: "Size", value: "42" }] },
-      rawProduct: { title: "Sneaker Collection", vendor: "FootwearVendor", productType: "Shoes" },
-    },
-    {
-      product: { id: "gid://shopify/Product/1111115", title: "Canvas Backpack", image: "https://cdn.shopify.com/s/files/1/0000/0000/products/backpack.jpg" },
-      variant: { id: "gid://shopify/ProductVariant/2222226", title: "Black" },
-      currentSku: "BAG-BLK",
-      rawVariant: { title: "Black", options: [{ name: "Color", value: "Black" }] },
-      rawProduct: { title: "Canvas Backpack", vendor: "AccessoryVendor", productType: "Bags" },
-    },
-  ];
+  // Derive preview rows dynamically from real Shopify store products/variants matching selected scope
+  const rawItems = (previewProducts || []).flatMap((item, pIdx) => {
+    if (item.variant && item.product) {
+      return [{
+        product: item.product,
+        variant: item.variant,
+        currentSku: item.currentSku && item.currentSku !== "—" ? item.currentSku : null,
+        rawVariant: item.rawVariant || item.variant,
+        rawProduct: item.rawProduct || item.product,
+        index: pIdx,
+      }];
+    }
+    const p = item;
+    const variants = p.variants || [{ id: `var_${p.id}`, title: "Default Variant", currentSku: null }];
+    return variants.map((v, vIdx) => ({
+      product: { id: p.id || `gid://shopify/Product/${pIdx}`, title: p.title || "Product", image: p.featuredImage?.url || p.image },
+      variant: { id: v.id || `gid://shopify/ProductVariant/${vIdx}`, title: v.title || "Default" },
+      currentSku: v.sku || v.currentSku || null,
+      rawVariant: v,
+      rawProduct: p,
+      index: pIdx * 10 + vIdx,
+    }));
+  });
 
-  // Derive preview rows dynamically using canonical generateSkuForVariant
-  const rawItems = previewProducts.length > 0
-    ? previewProducts.flatMap((p, pIdx) =>
-        (p.variants || [{ id: `var_${p.id}`, title: "Default Variant", currentSku: null }]).map((v, vIdx) => ({
-          product: { id: p.id || `gid://shopify/Product/100${pIdx}`, title: p.title || "Product", image: p.featuredImage?.url || p.image },
-          variant: { id: v.id || `gid://shopify/ProductVariant/200${vIdx}`, title: v.title || "Default" },
-          currentSku: v.sku || v.currentSku || null,
-          rawVariant: v,
-          rawProduct: p,
-          index: pIdx * 10 + vIdx,
-        }))
-      )
-    : defaultItems.map((item, index) => ({ ...item, index }));
-
-  // Apply preview SKU calculations securely extracting string sku property
+  // Apply preview SKU calculations using canonical SKU generator engine
   const tableRows = rawItems.map((item, idx) => {
     const skuResult = generateSkuForVariant({
       product: item.rawProduct,
@@ -114,20 +84,12 @@ export default function PreviewStepSection({
     };
   });
 
-  // Filter rows by search
-  const filteredRows = tableRows.filter((r) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const skuStr = typeof r.previewSku === "string" ? r.previewSku : "";
-    return (
-      r.product.title.toLowerCase().includes(q) ||
-      r.variant.title.toLowerCase().includes(q) ||
-      (r.currentSku && r.currentSku.toLowerCase().includes(q)) ||
-      skuStr.toLowerCase().includes(q)
-    );
-  });
+  const totalRowsCount = tableRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRowsCount / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const pageRows = tableRows.slice(startIndex, startIndex + itemsPerPage);
 
-  const totalVariantCount = scopeCounts.totalVariants || 93;
+  const totalVariantCount = scopeCounts.totalVariants || totalRowsCount;
   const totalProductCount = scopeCounts.totalProducts || 78;
 
   return (
@@ -392,98 +354,20 @@ export default function PreviewStepSection({
           marginBottom: "20px",
         }}
       >
-        {/* Table Title Bar & Controls */}
+        {/* Table Title Bar */}
         <div
           style={{
             padding: "16px 20px",
             borderBottom: "1px solid #E5E7EB",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "12px",
           }}
         >
           <div>
             <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#111827", margin: 0 }}>
-              Preview (First 10 of {totalVariantCount} variants)
+              Preview (Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, totalRowsCount)} of {totalRowsCount} variants)
             </h3>
             <p style={{ fontSize: "13px", color: "#6B7280", marginTop: "2px", margin: 0 }}>
               Review the current SKUs and the new SKUs that will be applied.
             </p>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {/* Search Input */}
-            <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                placeholder="Search products or variants..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  padding: "7px 12px 7px 32px",
-                  fontSize: "13px",
-                  borderRadius: "8px",
-                  border: "1px solid #D1D5DB",
-                  width: "220px",
-                  outline: "none",
-                }}
-              />
-              <span
-                style={{
-                  position: "absolute",
-                  left: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#9CA3AF",
-                  fontSize: "13px",
-                }}
-              >
-                🔍
-              </span>
-            </div>
-
-            {/* Filters Button */}
-            <button
-              type="button"
-              style={{
-                backgroundColor: "#FFFFFF",
-                border: "1px solid #D1D5DB",
-                color: "#374151",
-                padding: "7px 12px",
-                borderRadius: "8px",
-                fontSize: "13px",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-              }}
-            >
-              <span>Y Filters</span>
-            </button>
-
-            {/* Sort Dropdown */}
-            <button
-              type="button"
-              style={{
-                backgroundColor: "#FFFFFF",
-                border: "1px solid #D1D5DB",
-                color: "#374151",
-                padding: "7px 12px",
-                borderRadius: "8px",
-                fontSize: "13px",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-              }}
-            >
-              <span>Sort by: Title A-Z</span>
-              <ChevronDownIcon size={12} color="#6B7280" />
-            </button>
           </div>
         </div>
 
@@ -500,11 +384,11 @@ export default function PreviewStepSection({
               </tr>
             </thead>
             <tbody>
-              {filteredRows.slice(0, 10).map((row, idx) => (
+              {pageRows.map((row, idx) => (
                 <tr
-                  key={idx}
+                  key={row.variant.id || idx}
                   style={{
-                    borderBottom: idx < filteredRows.length - 1 ? "1px solid #F3F4F6" : "none",
+                    borderBottom: idx < pageRows.length - 1 ? "1px solid #F3F4F6" : "none",
                     fontSize: "13px",
                   }}
                 >
@@ -596,7 +480,7 @@ export default function PreviewStepSection({
           </table>
         </div>
 
-        {/* Table Pagination Bar */}
+        {/* Working Interactive Table Pagination Bar */}
         <div
           style={{
             padding: "12px 20px",
@@ -608,90 +492,67 @@ export default function PreviewStepSection({
           }}
         >
           <span style={{ fontSize: "13px", color: "#6B7280" }}>
-            Showing 1 to 10 of {totalVariantCount} variants
+            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, totalRowsCount)} of {totalRowsCount} variants
           </span>
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <button
               type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
               style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: "#5B3DF5",
-                color: "#FFFFFF",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              1
-            </button>
-            <button
-              type="button"
-              style={{
-                width: "30px",
+                padding: "4px 10px",
                 height: "30px",
                 borderRadius: "6px",
                 border: "1px solid #E5E7EB",
                 backgroundColor: "#FFFFFF",
-                color: "#374151",
+                color: currentPage === 1 ? "#9CA3AF" : "#374151",
                 fontSize: "13px",
                 fontWeight: 500,
-                cursor: "pointer",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
               }}
             >
-              2
+              &lt; Prev
             </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                type="button"
+                onClick={() => setCurrentPage(pageNum)}
+                style={{
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "6px",
+                  border: pageNum === currentPage ? "none" : "1px solid #E5E7EB",
+                  backgroundColor: pageNum === currentPage ? "#5B3DF5" : "#FFFFFF",
+                  color: pageNum === currentPage ? "#FFFFFF" : "#374151",
+                  fontSize: "13px",
+                  fontWeight: pageNum === currentPage ? 600 : 500,
+                  cursor: "pointer",
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
+
             <button
               type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
               style={{
-                width: "30px",
+                padding: "4px 10px",
                 height: "30px",
                 borderRadius: "6px",
                 border: "1px solid #E5E7EB",
                 backgroundColor: "#FFFFFF",
-                color: "#374151",
+                color: currentPage === totalPages ? "#9CA3AF" : "#374151",
                 fontSize: "13px",
                 fontWeight: 500,
-                cursor: "pointer",
+                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
               }}
             >
-              3
-            </button>
-            <span style={{ color: "#9CA3AF", fontSize: "12px" }}>...</span>
-            <button
-              type="button"
-              style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "6px",
-                border: "1px solid #E5E7EB",
-                backgroundColor: "#FFFFFF",
-                color: "#374151",
-                fontSize: "13px",
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              10
-            </button>
-            <button
-              type="button"
-              style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "6px",
-                border: "1px solid #E5E7EB",
-                backgroundColor: "#FFFFFF",
-                color: "#374151",
-                fontSize: "13px",
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              &gt;
+              Next &gt;
             </button>
           </div>
         </div>

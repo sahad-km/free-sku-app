@@ -76,7 +76,7 @@ export async function resolveSkuSelection({
   sort = "TITLE_ASC",
   search = "",
   cursor = null,
-  limit = 10,
+  limit = 250,
   includeMetafields = [],
 }) {
   const { type = "ALL_PRODUCTS", collectionIds = [], productIds = [], variantIds = [], tag = "" } = selection;

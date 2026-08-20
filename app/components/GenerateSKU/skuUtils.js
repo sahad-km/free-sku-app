@@ -59,22 +59,26 @@ export const initialProducts = [
 ];
 
 export function generatePreviewSku({
-  product,
-  index,
-  prefix,
-  body,
-  suffix,
-  bodyNumberType,
-  startNumber,
-  numberPadding,
-  incrementStep,
+  product = {},
+  variant = {},
+  index = 0,
+  prefix = "",
+  body = "",
+  suffix = "",
+  bodyNumberType = "sequential",
+  startNumber = 1,
+  numberPadding = 4,
+  incrementStep = 1,
   randomDigits = 4,
-  skuComponents,
-  separator,
-  customSeparator,
-  removeSpaces,
-  capitalizeAll,
+  skuComponents = [],
+  separator = "none",
+  customSeparator = "",
+  removeSpaces = false,
+  capitalizeAll = false,
 }) {
+  const pObj = product?.rawProduct || product?.product || product || {};
+  const vObj = variant || product?.rawVariant || product?.variant || pObj.variants?.[0] || pObj;
+
   // Determine separator string
   let sep = "";
   if (separator === "dash" || separator === "-") sep = "-";
@@ -97,10 +101,10 @@ export function generatePreviewSku({
   } else if (bodyNumberType === "disabled") {
     numericBodyVal = "";
   } else if (bodyNumberType === "productId") {
-    const rawId = (product.productId || product.id || "").toString();
+    const rawId = (pObj.productId || pObj.id || "").toString();
     numericBodyVal = rawId.replace(/\D/g, "");
   } else if (bodyNumberType === "variantId") {
-    const rawId = (product.variantId || product.id || "").toString();
+    const rawId = (vObj.variantId || vObj.id || pObj.variantId || "").toString();
     numericBodyVal = rawId.replace(/\D/g, "");
   } else if (bodyNumberType === "random") {
     const digits = Math.max(1, Math.min(10, parseInt(randomDigits, 10) || 4));
@@ -110,30 +114,61 @@ export function generatePreviewSku({
     numericBodyVal = rand.toString().padStart(digits, "0");
   }
 
-  // Build component values in the user's configured component order
-  const parts = skuComponents.map((comp) => {
-    if (comp.type === "prefix") {
-      return prefix || comp.value || "";
-    }
-    if (comp.type === "body") {
-      if (bodyNumberType === "disabled") return "";
-      return numericBodyVal;
-    }
-    if (comp.type === "suffix") {
-      return suffix || comp.value || "";
-    }
-    if (comp.type === "metafield" || comp.type === "productMetafield" || comp.type === "variantMetafield") {
-      if (comp.key === "material") return product.material || "MAT";
-      if (comp.key === "vendor") return product.vendor || "VND";
-      if (comp.key === "type") return product.type || "TYPE";
-      if (comp.key === "color") return product.color || "CLR";
-      return comp.value || comp.key || "META";
-    }
-    return comp.value || "";
-  });
+  const helperTruncate = (raw, charSetting) => {
+    if (!raw) return "";
+    if (!charSetting || charSetting === "full") return raw;
+    const len = parseInt(charSetting, 10);
+    return !isNaN(len) && len > 0 ? raw.substring(0, len) : raw;
+  };
 
-  // Filter out empty parts
-  const activeParts = parts.filter((p) => p !== undefined && p !== null && p !== "");
+  // Evaluate middle components in the user's configured drag-and-drop order
+  const middleParts = skuComponents
+    .filter((comp) => comp.type !== "prefix" && comp.type !== "suffix")
+    .map((comp) => {
+      if (comp.type === "body") {
+        if (bodyNumberType === "disabled") return "";
+        return numericBodyVal;
+      }
+      if (comp.type === "productTitle" || comp.type === "productName") {
+        return helperTruncate(pObj.title || "", comp.charLength);
+      }
+      if (comp.type === "productVendor" || comp.type === "vendor" || comp.type === "product_vendor") {
+        return helperTruncate(pObj.vendor || "", comp.charLength);
+      }
+      if (comp.type === "productType" || comp.type === "type" || comp.type === "product_type") {
+        return helperTruncate(pObj.productType || pObj.type || "", comp.charLength);
+      }
+      if (comp.type === "variantTitle" || comp.type === "variantName") {
+        return helperTruncate(vObj.title || "", comp.charLength);
+      }
+      if (comp.type === "variantOption1" || comp.type === "option1" || comp.type === "variant_option1") {
+        const val = vObj.option1 || vObj.selectedOptions?.[0]?.value || vObj.color || "";
+        return helperTruncate(val, comp.charLength);
+      }
+      if (comp.type === "variantOption2" || comp.type === "option2" || comp.type === "variant_option2") {
+        const val = vObj.option2 || vObj.selectedOptions?.[1]?.value || vObj.material || "";
+        return helperTruncate(val, comp.charLength);
+      }
+      if (comp.type === "variantOption3" || comp.type === "option3" || comp.type === "variant_option3") {
+        const val = vObj.option3 || vObj.selectedOptions?.[2]?.value || "";
+        return helperTruncate(val, comp.charLength);
+      }
+      return comp.value || "";
+    });
+
+  // Assemble full SKU: Fixed Prefix -> Draggable Middle Components -> Fixed Suffix
+  const activeParts = [];
+  if (prefix && String(prefix).trim()) {
+    activeParts.push(String(prefix).trim());
+  }
+  middleParts.forEach((p) => {
+    if (p !== undefined && p !== null && p !== "") {
+      activeParts.push(String(p).trim());
+    }
+  });
+  if (suffix && String(suffix).trim()) {
+    activeParts.push(String(suffix).trim());
+  }
 
   // Join with separator
   let finalSku = activeParts.join(sep);

@@ -9,7 +9,7 @@ import {
 export default function SkuLayoutSection({
   skuComponents,
   setSkuComponents,
-  onOpenAddComponent,
+  onRemoveComponent,
 }) {
   const [draggedIndex, setDraggedIndex] = useState(null);
 
@@ -41,7 +41,33 @@ export default function SkuLayoutSection({
       alert("Body component is required in the SKU layout.");
       return;
     }
-    setSkuComponents(skuComponents.filter((comp) => comp.id !== id));
+    if (onRemoveComponent) {
+      onRemoveComponent(type, id);
+    } else {
+      setSkuComponents(skuComponents.filter((comp) => comp.id !== id));
+    }
+  };
+
+  const getDisplayBadgeValue = (comp) => {
+    let raw = comp.value;
+    if (!raw) {
+      if (comp.type === "prefix") raw = "STRT";
+      else if (comp.type === "body") raw = "0001";
+      else if (comp.type === "suffix") raw = "END";
+      else if (comp.type === "productTitle" || comp.type === "productName") raw = "Snowboard";
+      else if (comp.type === "variantTitle" || comp.type === "variantName") raw = "Black/L";
+      else if (comp.type === "productType" || comp.type === "type") raw = "Snowboard";
+      else if (comp.type === "productVendor" || comp.type === "vendor") raw = "Burton";
+      else if (comp.type === "variantOption1" || comp.type === "option1") raw = "Large";
+      else if (comp.type === "variantOption2" || comp.type === "option2") raw = "Black";
+      else if (comp.type === "variantOption3" || comp.type === "option3") raw = "Pro";
+      else raw = "VAL";
+    }
+
+    const charLen = comp.charLength;
+    if (!charLen || charLen === "full") return raw;
+    const num = parseInt(charLen, 10);
+    return !isNaN(num) && num > 0 ? raw.substring(0, num) : raw;
   };
 
   const getThemeClass = (type) => {
@@ -52,13 +78,18 @@ export default function SkuLayoutSection({
         return "comp-blue";
       case "suffix":
         return "comp-green";
-      case "productMetafield":
-      case "product_vendor":
-      case "product_type":
+      case "productTitle":
+      case "productName":
+      case "productVendor":
+      case "vendor":
+      case "productType":
+      case "type":
         return "comp-orange";
-      case "variantMetafield":
-      case "variant_option1":
-      case "variant_option2":
+      case "variantTitle":
+      case "variantName":
+      case "variantOption1":
+      case "variantOption2":
+      case "variantOption3":
         return "comp-magenta";
       default:
         return "comp-purple";
@@ -109,19 +140,9 @@ export default function SkuLayoutSection({
                 )}
               </div>
 
-              <div className="comp-value-badge">{comp.value || "STRT"}</div>
+              <div className="comp-value-badge">{getDisplayBadgeValue(comp)}</div>
             </div>
           ))}
-
-          {/* Add Component Card Button */}
-          <button
-            className="add-component-card-btn"
-            onClick={onOpenAddComponent}
-            type="button"
-          >
-            <PlusIcon size={16} color="#6B7280" />
-            <span>Add component</span>
-          </button>
         </div>
 
         <div className="reorder-tip-footer">

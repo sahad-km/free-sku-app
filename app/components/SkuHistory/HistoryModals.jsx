@@ -5,22 +5,24 @@ import { sampleGeneratedSkus } from "./mockData";
 export function ViewDetailsModal({ record, onClose }) {
   if (!record) return null;
 
-  const isFailed = record.status === "Failed";
+  const isFailed = (record.status || "").toLowerCase() === "failed";
+  const dateStr = record.date || (record.createdAt ? new Date(record.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
+  const timeStr = record.time || (record.createdAt ? new Date(record.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "");
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container modal-lg">
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-container modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h3 className="modal-title">Rule Execution Details</h3>
             <p className="modal-subtitle-id">Run ID: {record.id}</p>
           </div>
-          <button className="modal-close-btn" onClick={onClose} type="button">
-            <CloseIcon size={16} />
+          <button className="modal-close-btn" onClick={onClose} type="button" aria-label="Close">
+            <CloseIcon size={18} />
           </button>
         </div>
 
-        <div className="modal-body overflow-y-auto max-h-500">
+        <div className="modal-body max-h-500">
           {/* Status banner */}
           <div
             className={`detail-status-banner ${
@@ -30,7 +32,9 @@ export function ViewDetailsModal({ record, onClose }) {
             <span className="banner-status-text">
               Status: <strong>{record.status}</strong>
             </span>
-            <span className="banner-date-text">Executed on {record.date} at {record.time}</span>
+            <span className="banner-date-text">
+              {dateStr ? `Executed on ${dateStr}${timeStr ? ` at ${timeStr}` : ""}` : ""}
+            </span>
           </div>
 
           {isFailed && (
@@ -38,7 +42,7 @@ export function ViewDetailsModal({ record, onClose }) {
               <h4 className="failure-box-title">Failure reason</h4>
               <p className="failure-box-text">
                 {record.failureReason ||
-                  "Some products could not be updated because their SKU already exists."}
+                  `${record.variants || record.variantsProcessed || "Some"} variant updates failed.`}
               </p>
             </div>
           )}
@@ -48,31 +52,31 @@ export function ViewDetailsModal({ record, onClose }) {
           <div className="details-metrics-grid">
             <div className="metric-box">
               <span className="metric-label">Rule Name</span>
-              <span className="metric-val">{record.rule}</span>
+              <span className="metric-val">{record.rule || record.ruleName || "Manual run"}</span>
             </div>
             <div className="metric-box">
               <span className="metric-label">Rule Type</span>
-              <span className="metric-val">{record.ruleType}</span>
+              <span className="metric-val">{record.ruleType || "Manual run"}</span>
             </div>
             <div className="metric-box">
               <span className="metric-label">Target Scope</span>
-              <span className="metric-val">{record.scope}</span>
+              <span className="metric-val">{record.scope || "All products"}</span>
             </div>
             <div className="metric-box">
               <span className="metric-label">Products Processed</span>
-              <span className="metric-val">{record.products}</span>
+              <span className="metric-val">{record.products ?? record.productsProcessed ?? 0}</span>
             </div>
             <div className="metric-box">
               <span className="metric-label">Variants Processed</span>
-              <span className="metric-val">{record.variants}</span>
+              <span className="metric-val">{record.variants ?? record.variantsProcessed ?? 0}</span>
             </div>
             <div className="metric-box">
               <span className="metric-label">Generated SKUs</span>
-              <span className="metric-val font-mono">{record.generated}</span>
+              <span className="metric-val font-mono">{record.generated ?? record.generatedSkusCount ?? "—"}</span>
             </div>
             <div className="metric-box">
               <span className="metric-label">Credits Used</span>
-              <span className="metric-val">{record.creditsUsed} credits</span>
+              <span className="metric-val">{record.creditsUsed ?? record.variants ?? 0} credits</span>
             </div>
           </div>
 
@@ -87,11 +91,11 @@ export function ViewDetailsModal({ record, onClose }) {
                 </div>
                 <div className="setting-chip">
                   <span className="chip-label">Body Type:</span>
-                  <span className="chip-val">{record.settings.bodyType}</span>
+                  <span className="chip-val">{record.settings.bodyType || "sequential"}</span>
                 </div>
                 <div className="setting-chip">
                   <span className="chip-label">Padding:</span>
-                  <span className="chip-val">{record.settings.padding} digits</span>
+                  <span className="chip-val">{record.settings.padding || 4} digits</span>
                 </div>
                 <div className="setting-chip">
                   <span className="chip-label">Suffix:</span>
@@ -99,7 +103,7 @@ export function ViewDetailsModal({ record, onClose }) {
                 </div>
                 <div className="setting-chip">
                   <span className="chip-label">Separator:</span>
-                  <span className="chip-val">{record.settings.separator}</span>
+                  <span className="chip-val">{record.settings.separator || "none"}</span>
                 </div>
               </div>
             </>

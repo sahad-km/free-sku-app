@@ -19,25 +19,81 @@ export default function LivePreviewSidebar({
   onViewFullPreview,
   previewProducts = [],
 }) {
-  const productsToDisplay = previewProducts.length > 0 ? previewProducts : initialProducts;
+  const rawList = previewProducts.length > 0 ? previewProducts : initialProducts;
 
-  const renderProductIcon = (prod) => {
-    if (prod.image) {
+  const normalizedItems = rawList.flatMap((item, idx) => {
+    // Format 1: Flattened item from preview API ({ product, variant, rawProduct, rawVariant })
+    if (item.product || item.variant) {
+      const pObj = item.product || item.rawProduct || {};
+      const vObj = item.variant || item.rawVariant || {};
+      const pTitle = pObj.title || "Product";
+      const vTitle = vObj.title && vObj.title !== "Default Title" ? ` - ${vObj.title}` : "";
+      const displayTitle = `${pTitle}${vTitle}`;
+      const imgUrl = vObj.image?.url || vObj.image || pObj.image?.url || pObj.image || pObj.featuredImage?.url || "";
+
+      return [{
+        id: vObj.id || pObj.id || `preview_${idx}`,
+        title: displayTitle,
+        image: imgUrl,
+        rawProduct: item.rawProduct || pObj,
+        rawVariant: item.rawVariant || vObj,
+        index: idx,
+      }];
+    }
+
+    // Format 2: Raw product object with variants array ({ id, title, image, variants: [...] })
+    if (item.variants && item.variants.length > 0) {
+      return item.variants.map((v, vIdx) => {
+        const pTitle = item.title || "Product";
+        const vTitle = v.title && v.title !== "Default Title" ? ` - ${v.title}` : "";
+        const displayTitle = `${pTitle}${vTitle}`;
+        const imgUrl = v.image?.url || v.image || item.image?.url || item.image || item.featuredImage?.url || "";
+        return {
+          id: v.id || item.id || `preview_${idx}_${vIdx}`,
+          title: displayTitle,
+          image: imgUrl,
+          rawProduct: item,
+          rawVariant: v,
+          index: idx * 10 + vIdx,
+        };
+      });
+    }
+
+    // Format 3: Standard product object or mock item
+    return [{
+      id: item.id || `preview_${idx}`,
+      title: item.title || "Product",
+      image: item.image?.url || item.image || "",
+      rawProduct: item,
+      rawVariant: item,
+      index: idx,
+    }];
+  });
+
+  const renderProductIcon = (item) => {
+    if (item.image) {
       return (
         <img
-          src={prod.image}
-          alt={prod.title}
+          src={item.image}
+          alt={item.title}
           style={{ width: "32px", height: "32px", borderRadius: "6px", objectFit: "cover" }}
         />
       );
     }
-    if (prod.type === "Gift Card") {
-      return <div className="gift-card-icon-box">🎁</div>;
-    }
     return (
-      <div className={`snowboard-icon-box ${prod.thumbnailBg || "bg-teal"}`}>
-        <span className="snowboard-pill board-left" />
-        <span className="snowboard-pill board-right" />
+      <div
+        style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "6px",
+          backgroundColor: "#F3F4F6",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "14px",
+        }}
+      >
+        📦
       </div>
     );
   };
@@ -50,9 +106,10 @@ export default function LivePreviewSidebar({
       </div>
 
       <div className="live-preview-list">
-        {productsToDisplay.slice(0, 5).map((product, idx) => {
+        {normalizedItems.slice(0, 5).map((item, idx) => {
           const skuVal = generatePreviewSku({
-            product,
+            product: item.rawProduct,
+            variant: item.rawVariant,
             index: idx,
             prefix,
             body,
@@ -70,12 +127,12 @@ export default function LivePreviewSidebar({
           });
 
           return (
-            <div key={product.id || idx} className="preview-product-item">
+            <div key={item.id || idx} className="preview-product-item">
               <div className="product-thumb-container">
-                {renderProductIcon(product)}
+                {renderProductIcon(item)}
               </div>
               <div className="product-preview-info">
-                <span className="product-title">{product.title}</span>
+                <span className="product-title">{item.title}</span>
                 <span className="product-computed-sku font-mono">{skuVal}</span>
               </div>
             </div>

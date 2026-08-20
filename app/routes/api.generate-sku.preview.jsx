@@ -19,7 +19,7 @@ export const action = async ({ request }) => {
       sort = "TITLE_ASC",
       search = "",
       cursor = null,
-      limit = 10,
+      limit = 250,
     } = body;
 
     const dataset = await getSkuPreviewDataset({
@@ -29,7 +29,7 @@ export const action = async ({ request }) => {
       sort,
       search,
       cursor,
-      limit: parseInt(limit, 10) || 10,
+      limit: parseInt(limit, 10) || 250,
     });
 
     return new Response(JSON.stringify({ success: true, ...dataset }), {
