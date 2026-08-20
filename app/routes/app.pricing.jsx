@@ -10,6 +10,7 @@ import PricingCardGrid from "../components/Pricing/PricingCardGrid";
 import FeatureComparisonTable from "../components/Pricing/FeatureComparisonTable";
 import SupportSidebarCards from "../components/Pricing/SupportSidebarCards";
 import MoneyBackBanner from "../components/Pricing/MoneyBackBanner";
+import { useToast } from "../components/Common/Toast";
 import "../styles/app.pricing.css";
 
 export const loader = async ({ request }) => {
@@ -70,9 +71,10 @@ export const action = async ({ request }) => {
 };
 
 export default function PricingPage() {
-  const loaderData = useLoaderData();
+  const loaderData = useLoaderData() || {};
   const fetcher = useFetcher();
   const [searchParams] = useSearchParams();
+  const { showToast } = useToast();
 
   const [billingInterval, setBillingInterval] = useState(loaderData?.billingInterval || "monthly");
   const [currentPlan, setCurrentPlan] = useState(loaderData?.currentPlan || "Free");
@@ -98,9 +100,9 @@ export default function PricingPage() {
         }
       } else if (fetcher.data.isFree) {
         setCurrentPlan("Free");
-        alert("Your subscription has been updated to the Free plan.");
+        showToast("Your subscription has been updated to the Free plan.", "success");
       } else if (fetcher.data.error) {
-        alert(`Billing Error: ${fetcher.data.error}`);
+        showToast(`Billing Error: ${fetcher.data.error}`, "error");
       }
     }
   }, [fetcher.data]);
@@ -124,11 +126,11 @@ export default function PricingPage() {
   };
 
   const handleContactSupport = () => {
-    alert("Opening SKU Generator Support chat...");
+    showToast("Opening SKU Generator Support chat...", "info");
   };
 
   const handleContactSales = () => {
-    alert("Opening Enterprise Custom Solutions contact form...");
+    showToast("Opening Enterprise Custom Solutions contact form...", "info");
   };
 
   return (

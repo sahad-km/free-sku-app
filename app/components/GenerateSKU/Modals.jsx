@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { CloseIcon, PlusIcon } from "./Icons";
 import { initialProducts, generatePreviewSku } from "./skuUtils";
+import { showGlobalToast } from "../Common/Toast";
 
 export function MetafieldFormModal({ isOpen, onClose, onAddMetafield, defaultLevel = "product" }) {
   const [level, setLevel] = useState(defaultLevel);
@@ -242,7 +243,7 @@ export function ScopeSelectorModal({ isOpen, onClose, selection, onApplySelectio
       }
     } else {
       // Fallback for dev mode without active App Bridge window
-      alert(`Shopify Resource Picker for ${type} is enabled. (GIDs will be selected in active store session)`);
+      showGlobalToast(`Shopify Resource Picker for ${type} active in store session`, "info");
       if (type === "COLLECTIONS") {
         onApplySelection({ type: "COLLECTIONS", collectionIds: ["gid://shopify/Collection/123"] });
       } else if (type === "PRODUCTS") {
@@ -259,7 +260,7 @@ export function ScopeSelectorModal({ isOpen, onClose, selection, onApplySelectio
       onApplySelection({ type: "ALL_PRODUCTS" });
     } else if (mode === "TAG") {
       if (!tagValue.trim()) {
-        alert("Please enter a valid product tag.");
+        showGlobalToast("Please enter a valid product tag.", "warning");
         return;
       }
       onApplySelection({ type: "TAG", tag: tagValue.trim() });

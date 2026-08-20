@@ -14,6 +14,7 @@ import {
   RuleHistoryModal,
   DeleteAutomationModal,
 } from "../components/AutomatedSku/AutomationModals";
+import { useToast } from "../components/Common/Toast";
 import "../styles/app.auto-sku.css";
 
 export const loader = async ({ request }) => {
@@ -50,6 +51,7 @@ export const loader = async ({ request }) => {
 export default function AutoSkuPage() {
   const loaderData = useLoaderData() || {};
   const revalidator = useRevalidator();
+  const { showToast } = useToast();
 
   // ─── Data State ───────────────────────────────────────────────────────
   const [rules, setRules] = useState(loaderData.rules || []);
@@ -172,10 +174,10 @@ export default function AutoSkuPage() {
 
       const resJson = await res.json();
       if (resJson.success) {
-        alert(`Automation "${rule.name}" executed! Generated ${resJson.totalGenerated || 0} SKUs.`);
+        showToast(`Automation "${rule.name}" executed! Generated ${resJson.totalGenerated || 0} SKUs.`, "success");
         revalidator.revalidate();
       } else {
-        alert(`Execution warning: ${resJson.error || "Failed to trigger rule"}`);
+        showToast(resJson.error || "Failed to trigger rule", "warning");
       }
     } catch (err) {
       console.warn("Failed to trigger rule now:", err.message);

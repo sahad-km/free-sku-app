@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { CloseIcon, ZapIcon, SparkleIcon } from "./Icons";
 import { triggerOptions, scopeOptions } from "./mockData";
+import { showGlobalToast } from "../Common/Toast";
 
 export default function CreateAutomationModal({
   isOpen,
@@ -92,7 +93,7 @@ export default function CreateAutomationModal({
 
   const handleNext = () => {
     if (currentStep === 1 && !ruleName.trim()) {
-      alert("Rule name is required.");
+      showGlobalToast("Rule name is required.", "warning");
       return;
     }
     if (currentStep < 4) {

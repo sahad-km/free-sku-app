@@ -14,6 +14,7 @@ import {
   ScanHistoryModal,
   ExportDuplicateModal,
 } from "../components/DuplicateSku/DuplicateModals";
+import { useToast } from "../components/Common/Toast";
 import "../styles/app.duplicated-sku.css";
 
 export const loader = async ({ request }) => {
@@ -60,6 +61,7 @@ export const loader = async ({ request }) => {
 export default function DuplicatedSkuPage() {
   const loaderData = useLoaderData() || {};
   const revalidator = useRevalidator();
+  const { showToast } = useToast();
 
   // ─── Data State ───────────────────────────────────────────────────────
   const [summaryData, setSummaryData] = useState(loaderData.summary || {});
@@ -123,7 +125,7 @@ export default function DuplicatedSkuPage() {
       if (resJson.success) {
         revalidator.revalidate();
       } else {
-        alert(`Scan warning: ${resJson.error || "Failed to scan catalog"}`);
+        showToast(resJson.error || "Failed to scan catalog", "warning");
       }
     } catch (err) {
       setIsScanning(false);
@@ -150,10 +152,10 @@ export default function DuplicatedSkuPage() {
       const resJson = await res.json();
 
       if (resJson.success) {
-        alert(`Duplicate group successfully resolved!`);
+        showToast("Duplicate group successfully resolved!", "success");
         revalidator.revalidate();
       } else {
-        alert(`Resolution error: ${resJson.error || "Failed to resolve group"}`);
+        showToast(resJson.error || "Failed to resolve group", "error");
       }
     } catch (err) {
       console.warn("Failed to resolve group:", err.message);
@@ -172,7 +174,7 @@ export default function DuplicatedSkuPage() {
       });
 
       if (res.ok) {
-        alert(`Group "${group.title}" marked as ignored.`);
+        showToast(`Group "${group.title}" marked as ignored.`, "info");
         revalidator.revalidate();
       }
     } catch (err) {
@@ -182,7 +184,7 @@ export default function DuplicatedSkuPage() {
 
   const handleExportConfirm = (format) => {
     setIsExportOpen(false);
-    alert(`Duplicate SKU report exported as ${format.toUpperCase()}!`);
+    showToast(`Duplicate SKU report exported as ${format.toUpperCase()}!`, "success");
   };
 
   return (
@@ -220,7 +222,7 @@ export default function DuplicatedSkuPage() {
           {/* Right Column: Detection Guides & Scan Summary Sidebar */}
           <DetectionSidebar
             scanSummary={scanSummary}
-            onContactSupport={() => alert("Connecting to Shopify SKU Support...")}
+            onContactSupport={() => showToast("Connecting to Shopify SKU Support...", "info")}
           />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SearchIcon,
   FilterIcon,
@@ -13,10 +13,11 @@ import {
   StarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
 } from "./Icons";
 
 export default function AutomationTable({
-  rules,
+  rules = [],
   activeTab,
   setActiveTab,
   searchQuery,
@@ -29,6 +30,13 @@ export default function AutomationTable({
   onDeleteRule,
 }) {
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset to page 1 whenever tab or searchQuery changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, rules.length]);
 
   const handleToggleMenu = (id, e) => {
     e.stopPropagation();
@@ -53,6 +61,52 @@ export default function AutomationTable({
     }
   };
 
+  // Dynamic pagination math
+  const totalRules = rules.length;
+  const totalPages = Math.max(1, Math.ceil(totalRules / itemsPerPage));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+
+  const startIndex = (validCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalRules);
+  const pagedRules = rules.slice(startIndex, endIndex);
+
+  const renderPaginationButtons = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (validCurrentPage > 3) pages.push("...");
+      const start = Math.max(2, validCurrentPage - 1);
+      const end = Math.min(totalPages - 1, validCurrentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (validCurrentPage < totalPages - 2) pages.push("...");
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+
+    return pages.map((p, idx) => {
+      if (p === "...") {
+        return (
+          <span key={`ellipsis_${idx}`} className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      return (
+        <button
+          key={`page_${p}`}
+          className={`btn-page-num ${p === validCurrentPage ? "page-active" : ""}`}
+          onClick={() => setCurrentPage(p)}
+          type="button"
+        >
+          {p}
+        </button>
+      );
+    });
+  };
+
   return (
     <div className="card auto-table-card" onClick={closeMenu}>
       {/* ── Top Bar: Tabs & Search/Filters ──────────────────────────── */}
@@ -64,7 +118,10 @@ export default function AutomationTable({
               className={`auto-tab-btn ${
                 activeTab === tab ? "tab-active" : ""
               }`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setCurrentPage(1);
+              }}
               type="button"
             >
               {tab}
@@ -79,7 +136,10 @@ export default function AutomationTable({
               type="text"
               className="table-search-input"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search rules by name or scope..."
             />
           </div>
@@ -106,7 +166,7 @@ export default function AutomationTable({
             </tr>
           </thead>
           <tbody>
-            {rules.length === 0 ? (
+            {pagedRules.length === 0 ? (
               <tr>
                 <td colSpan={7} className="td-empty">
                   <div className="empty-table-state">
@@ -118,7 +178,7 @@ export default function AutomationTable({
                 </td>
               </tr>
             ) : (
-              rules.map((row) => {
+              pagedRules.map((row) => {
                 const isActive = row.status === "Active";
                 const isPaused = row.status === "Paused";
                 const isDraft = row.status === "Draft";
@@ -129,8 +189,8 @@ export default function AutomationTable({
                     {/* Rule Name */}
                     <td className="td-rule-info">
                       <div className="rule-cell-flex">
-                        <div className={`auto-rule-icon-box ${row.iconBg}`}>
-                          {renderRuleIcon(row.iconType, row.iconColor)}
+                        <div className={`auto-rule-icon-box ${row.iconBg || "bg-purple-light"}`}>
+                          {renderRuleIcon(row.iconType, row.iconColor || "#5B3DF5")}
                         </div>
                         <div>
                           <div className="auto-rule-title">{row.name}</div>
@@ -314,22 +374,62 @@ export default function AutomationTable({
       </div>
 
       {/* ── Pagination Footer ─────────────────────────────────────── */}
-      <div className="auto-table-pagination">
-        <div className="pagination-info">Showing 1 to {rules.length} of 8 rules</div>
+      <div className="auto-table-pagination" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 24px" }}>
+        <div className="pagination-info">
+          {totalRules === 0
+            ? "Showing 0 of 0 rules"
+            : `Showing ${startIndex + 1} to ${endIndex} of ${totalRules} rules`}
+        </div>
 
-        <div className="pagination-btns">
-          <button className="btn-page-nav" disabled type="button">
-            <ChevronLeftIcon size={14} color="#9CA3AF" />
+        <div className="pagination-btns" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button
+            className="btn-page-nav"
+            disabled={validCurrentPage <= 1}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            type="button"
+          >
+            <ChevronLeftIcon size={14} color={validCurrentPage <= 1 ? "#9CA3AF" : "#374151"} />
+            <span>Prev</span>
           </button>
-          <button className="btn-page-num page-active" type="button">
-            1
+
+          {renderPaginationButtons()}
+
+          <button
+            className="btn-page-nav"
+            disabled={validCurrentPage >= totalPages}
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            type="button"
+          >
+            <span>Next</span>
+            <ChevronRightIcon size={14} color={validCurrentPage >= totalPages ? "#9CA3AF" : "#374151"} />
           </button>
-          <button className="btn-page-num" type="button">
-            2
-          </button>
-          <button className="btn-page-nav" type="button">
-            <ChevronRightIcon size={14} color="#374151" />
-          </button>
+        </div>
+
+        <div className="per-page-selector" style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="per-page-select-input"
+            style={{
+              appearance: "none",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              borderRadius: "6px",
+              padding: "5px 26px 5px 10px",
+              fontSize: "12.5px",
+              fontWeight: 500,
+              color: "#111827",
+              cursor: "pointer",
+            }}
+          >
+            <option value={10}>10 per page</option>
+            <option value={25}>25 per page</option>
+            <option value={50}>50 per page</option>
+          </select>
+          <ChevronDownIcon size={14} color="#6B7280" style={{ position: "absolute", right: "8px", pointerEvents: "none" }} />
         </div>
       </div>
     </div>

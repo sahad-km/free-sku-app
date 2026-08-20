@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SearchIcon,
   FilterIcon,
@@ -17,7 +17,7 @@ import {
 } from "./Icons";
 
 export default function DuplicateTable({
-  groups,
+  groups = [],
   searchQuery,
   setSearchQuery,
   sortBy,
@@ -27,6 +27,13 @@ export default function DuplicateTable({
   onIgnoreGroup,
 }) {
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset to page 1 whenever search, sort, or groups change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [groups.length, searchQuery, sortBy]);
 
   const handleToggleMenu = (id, e) => {
     e.stopPropagation();
@@ -51,12 +58,58 @@ export default function DuplicateTable({
     }
   };
 
+  // Dynamic pagination math
+  const totalGroups = groups.length;
+  const totalPages = Math.max(1, Math.ceil(totalGroups / itemsPerPage));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+
+  const startIndex = (validCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalGroups);
+  const pagedGroups = groups.slice(startIndex, endIndex);
+
+  const renderPaginationButtons = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (validCurrentPage > 3) pages.push("...");
+      const start = Math.max(2, validCurrentPage - 1);
+      const end = Math.min(totalPages - 1, validCurrentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (validCurrentPage < totalPages - 2) pages.push("...");
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+
+    return pages.map((p, idx) => {
+      if (p === "...") {
+        return (
+          <span key={`ellipsis_${idx}`} className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      return (
+        <button
+          key={`page_${p}`}
+          className={`btn-pg-num ${p === validCurrentPage ? "pg-active" : ""}`}
+          onClick={() => setCurrentPage(p)}
+          type="button"
+        >
+          {p}
+        </button>
+      );
+    });
+  };
+
   return (
     <div className="card dup-table-card" onClick={closeMenu}>
       {/* ── Header Bar ────────────────────────────────────────────── */}
       <div className="dup-table-header">
         <h3 className="dup-table-title">
-          Duplicate groups ({groups.length})
+          Duplicate groups ({totalGroups})
         </h3>
 
         <div className="dup-table-controls">
@@ -66,7 +119,10 @@ export default function DuplicateTable({
               type="text"
               className="search-input"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by SKU or product..."
             />
           </div>
@@ -75,7 +131,10 @@ export default function DuplicateTable({
             <select
               className="sort-select"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setCurrentPage(1);
+              }}
             >
               <option value="severity">Sort by</option>
               <option value="affected">Affected SKUs</option>
@@ -104,7 +163,7 @@ export default function DuplicateTable({
             </tr>
           </thead>
           <tbody>
-            {groups.length === 0 ? (
+            {pagedGroups.length === 0 ? (
               <tr>
                 <td colSpan={5} className="td-empty">
                   <div className="empty-table-state">
@@ -116,7 +175,7 @@ export default function DuplicateTable({
                 </td>
               </tr>
             ) : (
-              groups.map((group) => {
+              pagedGroups.map((group) => {
                 const isExact = group.duplicateType === "Exact match";
                 const isMenuOpen = openMenuId === group.id;
 
@@ -125,8 +184,8 @@ export default function DuplicateTable({
                     {/* Group Column */}
                     <td className="td-group-col">
                       <div className="group-cell-content">
-                        <div className={`group-icon-box ${group.iconBg}`}>
-                          {renderGroupIcon(group.iconType, group.iconColor)}
+                        <div className={`group-icon-box ${group.iconBg || "bg-purple-light"}`}>
+                          {renderGroupIcon(group.iconType, group.iconColor || "#5B3DF5")}
                         </div>
                         <div>
                           <div className="group-title-text">{group.title}</div>
@@ -240,35 +299,46 @@ export default function DuplicateTable({
       {/* ── Pagination Footer ─────────────────────────────────────── */}
       <div className="dup-table-pagination">
         <div className="pagination-text-info">
-          Showing 1 to {groups.length} of 18 groups
+          {totalGroups === 0
+            ? "Showing 0 of 0 groups"
+            : `Showing ${startIndex + 1} to ${endIndex} of ${totalGroups} groups`}
         </div>
 
         <div className="pagination-controls-flex">
-          <button className="btn-pg-nav" disabled type="button">
-            <ChevronLeftIcon size={14} color="#9CA3AF" />
+          <button
+            className="btn-pg-nav"
+            disabled={validCurrentPage <= 1}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            type="button"
+          >
+            <ChevronLeftIcon size={14} color={validCurrentPage <= 1 ? "#9CA3AF" : "#374151"} />
           </button>
-          <button className="btn-pg-num pg-active" type="button">
-            1
-          </button>
-          <button className="btn-pg-num" type="button">
-            2
-          </button>
-          <button className="btn-pg-num" type="button">
-            3
-          </button>
-          <button className="btn-pg-num" type="button">
-            4
-          </button>
-          <button className="btn-pg-nav" type="button">
-            <ChevronRightIcon size={14} color="#374151" />
+
+          {renderPaginationButtons()}
+
+          <button
+            className="btn-pg-nav"
+            disabled={validCurrentPage >= totalPages}
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            type="button"
+          >
+            <ChevronRightIcon size={14} color={validCurrentPage >= totalPages ? "#9CA3AF" : "#374151"} />
           </button>
         </div>
 
         <div className="per-page-select-wrapper">
-          <select className="per-page-select">
+          <select
+            className="per-page-select"
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+          >
             <option value={5}>5 per page</option>
             <option value={10}>10 per page</option>
             <option value={25}>25 per page</option>
+            <option value={50}>50 per page</option>
           </select>
           <ChevronDownIcon size={14} color="#6B7280" />
         </div>

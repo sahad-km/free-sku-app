@@ -25,6 +25,7 @@ import {
   FullPreviewModal,
   RuleSummaryModal,
 } from "../components/GenerateSKU/Modals";
+import { useToast } from "../components/Common/Toast";
 import "../styles/app.generate-sku.css";
 
 export const loader = async ({ request }) => {
@@ -195,9 +196,11 @@ export default function GenerateSkuPage() {
     });
   };
 
+  const { showToast } = useToast();
+
   const handleRemoveComponentFromLayout = (compType, compId) => {
     if (compType === "body") {
-      alert("Body component is required in the SKU layout.");
+      showToast("Body component is required in the SKU layout.", "warning");
       return;
     }
     setSkuComponents((prev) => prev.filter((c) => c.id !== compId));
@@ -216,7 +219,7 @@ export default function GenerateSkuPage() {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      alert("SKU rule configuration saved as draft!");
+      showToast("SKU rule configuration saved as draft!", "success");
     }, 600);
   };
 
@@ -336,11 +339,11 @@ export default function GenerateSkuPage() {
         setActiveRunId(resJson.runId);
         setIsProgressModalOpen(true);
       } else {
-        alert(`Generation Error: ${resJson.message || resJson.error || "Failed to start generation run"}`);
+        showToast(resJson.message || resJson.error || "Failed to start generation run", "error");
       }
     } catch (err) {
       setIsGenerating(false);
-      alert(`Network error executing generation: ${err.message}`);
+      showToast(`Network error executing generation: ${err.message}`, "error");
     }
   };
 

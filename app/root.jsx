@@ -1,4 +1,5 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { ToastProvider } from "./components/Common/Toast";
 
 export default function App() {
   return (
@@ -16,7 +17,9 @@ export default function App() {
         <Links />
       </head>
       <body style={{ fontFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-        <Outlet />
+        <ToastProvider>
+          <Outlet />
+        </ToastProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -5,6 +5,7 @@ import {
   PlusIcon,
   InfoIcon,
 } from "./Icons";
+import { showGlobalToast } from "../Common/Toast";
 
 export default function SkuLayoutSection({
   skuComponents,
@@ -38,7 +39,7 @@ export default function SkuLayoutSection({
 
   const handleRemoveComponent = (id, type) => {
     if (type === "body") {
-      alert("Body component is required in the SKU layout.");
+      showGlobalToast("Body component is required in the SKU layout.", "warning");
       return;
     }
     if (onRemoveComponent) {
