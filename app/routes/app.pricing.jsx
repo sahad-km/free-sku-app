@@ -1,62 +1,158 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLoaderData, useFetcher, useSearchParams } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { syncBillingState, requestSubscription, cancelSubscription } from "../services/billing/shopifyBillingService.server";
+import { getShopEntitlements } from "../services/billing/entitlementService.server";
+import { getPlanHandleFromName } from "../services/billing/planConfig.server";
 import PricingHeader from "../components/Pricing/PricingHeader";
 import PricingCardGrid from "../components/Pricing/PricingCardGrid";
 import FeatureComparisonTable from "../components/Pricing/FeatureComparisonTable";
 import SupportSidebarCards from "../components/Pricing/SupportSidebarCards";
 import MoneyBackBanner from "../components/Pricing/MoneyBackBanner";
-import { initialPricingData } from "../components/Pricing/mockData";
 import "../styles/app.pricing.css";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
+  const { admin, session } = await authenticate.admin(request);
+  const shopDomain = session.shop;
+
+  let billingInfo;
+  try {
+    billingInfo = await syncBillingState(admin, shopDomain);
+  } catch (err) {
+    console.warn(`[PricingLoader] syncBillingState warning for ${shopDomain}:`, err.message);
+    billingInfo = await getShopEntitlements(shopDomain);
+  }
+
+  return {
+    shopDomain,
+    currentPlan: billingInfo.planName || "Free",
+    billingInterval: billingInfo.billingInterval || "monthly",
+    status: billingInfo.status || "FREE",
+  };
+};
+
+export const action = async ({ request }) => {
+  const { admin, session } = await authenticate.admin(request);
+  const shopDomain = session.shop;
+
+  const formData = await request.formData();
+  const requestedPlanName = formData.get("planName");
+  const billingInterval = formData.get("billingInterval") || "monthly";
+
+  if (!requestedPlanName) {
+    return { success: false, error: "Plan name is required" };
+  }
+
+  const planHandle = getPlanHandleFromName(requestedPlanName, billingInterval);
+
+  try {
+    if (requestedPlanName === "Free") {
+      await cancelSubscription(admin, shopDomain);
+      return { success: true, isFree: true, planName: "Free" };
+    }
+
+    // Construct app return URL for Shopify confirmation screen
+    const url = new URL(request.url);
+    const returnUrl = `${url.origin}/app/billing/callback`;
+
+    const result = await requestSubscription(admin, shopDomain, planHandle, returnUrl);
+
+    if (result.confirmationUrl) {
+      return { success: true, confirmationUrl: result.confirmationUrl };
+    }
+
+    return { success: true, isFree: true, planName: "Free" };
+  } catch (err) {
+    console.error(`[PricingActionError] for ${shopDomain}:`, err);
+    return { success: false, error: err.message || "Failed to process subscription request" };
+  }
 };
 
 export default function PricingPage() {
-  const [billingInterval, setBillingInterval] = useState(initialPricingData.billingInterval);
-  const [currentPlan, setCurrentPlan] = useState(initialPricingData.currentPlan);
+  const loaderData = useLoaderData();
+  const fetcher = useFetcher();
+  const [searchParams] = useSearchParams();
+
+  const [billingInterval, setBillingInterval] = useState(loaderData?.billingInterval || "monthly");
+  const [currentPlan, setCurrentPlan] = useState(loaderData?.currentPlan || "Free");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (loaderData?.currentPlan) {
+      setCurrentPlan(loaderData.currentPlan);
+    }
+  }, [loaderData?.currentPlan]);
+
+  // Handle billing action response
+  useEffect(() => {
+    if (fetcher.data) {
+      setIsSubmitting(false);
+
+      if (fetcher.data.confirmationUrl) {
+        // Redirect merchant to Shopify approval screen
+        if (window.top) {
+          window.top.location.href = fetcher.data.confirmationUrl;
+        } else {
+          window.location.href = fetcher.data.confirmationUrl;
+        }
+      } else if (fetcher.data.isFree) {
+        setCurrentPlan("Free");
+        alert("Your subscription has been updated to the Free plan.");
+      } else if (fetcher.data.error) {
+        alert(`Billing Error: ${fetcher.data.error}`);
+      }
+    }
+  }, [fetcher.data]);
 
   const handleSelectPlan = (plan) => {
     if (plan.name === currentPlan) return;
 
-    if (plan.isCustom) {
-      alert("Thank you for your interest! Our Enterprise team will contact you shortly.");
-      return;
-    }
+    const actionText = plan.name === "Free" ? "downgrade to Free" : `subscribe to ${plan.name} (${billingInterval})`;
 
-    const intervalText = billingInterval === "annual" ? "annual" : "monthly";
-    const priceText = billingInterval === "annual" ? `$${plan.annualMonthlyPrice}/mo` : `$${plan.monthlyPrice}/mo`;
+    if (confirm(`Are you sure you want to ${actionText}?`)) {
+      setIsSubmitting(true);
 
-    if (confirm(`Upgrade to the ${plan.name} plan (${priceText}, billed ${intervalText})?`)) {
-      setCurrentPlan(plan.name);
-      alert(`Success! Your store has been upgraded to the ${plan.name} plan.`);
+      fetcher.submit(
+        {
+          planName: plan.name,
+          billingInterval,
+        },
+        { method: "post" }
+      );
     }
   };
 
   const handleContactSupport = () => {
-    alert("Opening Shopify SKU Support chat...");
+    alert("Opening SKU Generator Support chat...");
   };
 
   const handleContactSales = () => {
-    alert("Opening Enterprise Sales contact form...");
+    alert("Opening Enterprise Custom Solutions contact form...");
   };
 
   return (
     <div className="pricing-page-root">
       <div className="pricing-page-inner">
+        {/* Success Banner if returned from callback */}
+        {searchParams.get("billingSuccess") === "true" && (
+          <div className="card" style={{ padding: "14px 20px", backgroundColor: "#DCFCE7", borderColor: "#86EFAC", color: "#15803D", fontWeight: 600, fontSize: "14px", borderRadius: "10px" }}>
+            🎉 Success! Your subscription has been confirmed by Shopify.
+          </div>
+        )}
+
         {/* ── Page Header ─────────────────────────────────────────── */}
         <PricingHeader
           billingInterval={billingInterval}
           setBillingInterval={setBillingInterval}
         />
 
-        {/* ── Main Pricing Cards Grid (Included benefits + 4 Cards) ── */}
+        {/* ── Main Pricing Cards Grid (Included benefits + 3 Cards) ── */}
         <PricingCardGrid
           billingInterval={billingInterval}
           onSelectPlan={handleSelectPlan}
           currentPlan={currentPlan}
+          isSubmitting={isSubmitting}
         />
 
         {/* ── Bottom Section (Compare Table & Support Sidebar Cards) ─ */}

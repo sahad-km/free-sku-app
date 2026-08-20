@@ -101,8 +101,10 @@ const SkuGenerationRunSchema = new mongoose.Schema(
 );
 
 SkuGenerationRunSchema.index({ shopDomain: 1, createdAt: -1 });
-SkuGenerationRunSchema.index({ shopDomain: 1, status: 1 });
+SkuGenerationRunSchema.index({ shopDomain: 1, status: 1, createdAt: -1 });
+SkuGenerationRunSchema.index({ shopDomain: 1, scopeType: 1, createdAt: -1 });
 SkuGenerationRunSchema.index({ shopDomain: 1, idempotencyKey: 1 });
+SkuGenerationRunSchema.index({ shopDomain: 1, ruleName: 1 });
 
 export default mongoose.models.SkuGenerationRun ||
   mongoose.model("SkuGenerationRun", SkuGenerationRunSchema);

@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useLoaderData, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { getAutomationRules } from "../services/sku/automatedSkuService.server";
 import AutomatedSkuHeader from "../components/AutomatedSku/AutomatedSkuHeader";
 import AutomationSummary from "../components/AutomatedSku/AutomationSummary";
 import HowItWorksSidebar from "../components/AutomatedSku/HowItWorksSidebar";
@@ -12,18 +14,51 @@ import {
   RuleHistoryModal,
   DeleteAutomationModal,
 } from "../components/AutomatedSku/AutomationModals";
-import { initialAutomationRules, initialAutomationSummary } from "../components/AutomatedSku/mockData";
 import "../styles/app.auto-sku.css";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
+  const { session } = await authenticate.admin(request);
+  const shopDomain = session?.shop;
+
+  try {
+    const data = await getAutomationRules({ shopDomain });
+    return {
+      rules: data.rules || [],
+      summary: data.summary || {
+        activeRules: 0,
+        totalRules: 0,
+        totalGenerated: 0,
+        lastRunDate: "Never",
+        lastRunTime: "--",
+      },
+    };
+  } catch (err) {
+    console.warn("Loader Automated SKU warning:", err.message);
+    return {
+      rules: [],
+      summary: {
+        activeRules: 0,
+        totalRules: 0,
+        totalGenerated: 0,
+        lastRunDate: "Never",
+        lastRunTime: "--",
+      },
+    };
+  }
 };
 
 export default function AutoSkuPage() {
+  const loaderData = useLoaderData() || {};
+  const revalidator = useRevalidator();
+
   // ─── Data State ───────────────────────────────────────────────────────
-  const [rules, setRules] = useState(initialAutomationRules);
-  const [summaryData, setSummaryData] = useState(initialAutomationSummary);
+  const [rules, setRules] = useState(loaderData.rules || []);
+  const [summaryData, setSummaryData] = useState(loaderData.summary || {});
+
+  useEffect(() => {
+    setRules(loaderData.rules || []);
+    setSummaryData(loaderData.summary || {});
+  }, [loaderData]);
 
   // ─── Filter & Search State ────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("All rules");
@@ -39,12 +74,10 @@ export default function AutoSkuPage() {
   // ─── Filter Logic ─────────────────────────────────────────────────────
   const filteredRules = useMemo(() => {
     return rules.filter((r) => {
-      // Tab filter
       if (activeTab === "Active" && r.status !== "Active") return false;
       if (activeTab === "Paused" && r.status !== "Paused") return false;
       if (activeTab === "Drafts" && r.status !== "Draft") return false;
 
-      // Search filter
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
         const matchName = r.name.toLowerCase().includes(query);
@@ -58,19 +91,23 @@ export default function AutoSkuPage() {
   }, [rules, activeTab, searchQuery]);
 
   // ─── Action Handlers ──────────────────────────────────────────────────
-  const handleToggleStatus = (rule) => {
-    const updated = rules.map((r) => {
-      if (r.id === rule.id) {
-        const newStatus = r.status === "Active" ? "Paused" : "Active";
-        return { ...r, status: newStatus };
-      }
-      return r;
-    });
-    setRules(updated);
+  const handleToggleStatus = async (rule) => {
+    try {
+      const res = await fetch("/api/automated-sku", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: "toggle-status",
+          ruleId: rule.id,
+        }),
+      });
 
-    // Update active count in summary
-    const newActiveCount = updated.filter((r) => r.status === "Active").length;
-    setSummaryData((prev) => ({ ...prev, activeRules: newActiveCount }));
+      if (res.ok) {
+        revalidator.revalidate();
+      }
+    } catch (err) {
+      console.warn("Failed to toggle rule status:", err.message);
+    }
   };
 
   const handleOpenCreateModal = () => {
@@ -83,33 +120,83 @@ export default function AutoSkuPage() {
     setIsCreateModalOpen(true);
   };
 
-  const handleSaveRule = (savedRule) => {
-    let updated;
-    const exists = rules.some((r) => r.id === savedRule.id);
-    if (exists) {
-      updated = rules.map((r) => (r.id === savedRule.id ? savedRule : r));
-    } else {
-      updated = [savedRule, ...rules];
+  const handleSaveRule = async (savedRule) => {
+    try {
+      const isEdit = Boolean(editingRule && editingRule.id);
+      const method = isEdit ? "PATCH" : "POST";
+
+      const payload = isEdit
+        ? {
+            ruleId: editingRule.id,
+            updateData: {
+              name: savedRule.name,
+              description: savedRule.description,
+              trigger: savedRule.trigger,
+              scope: savedRule.scope,
+              skuConfiguration: savedRule.config,
+            },
+          }
+        : {
+            name: savedRule.name,
+            description: savedRule.description,
+            trigger: savedRule.trigger,
+            scope: savedRule.scope,
+            skuConfiguration: savedRule.config,
+          };
+
+      const res = await fetch("/api/automated-sku", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        revalidator.revalidate();
+      }
+    } catch (err) {
+      console.warn("Failed to save automation rule:", err.message);
     }
-    setRules(updated);
-
-    const newActiveCount = updated.filter((r) => r.status === "Active").length;
-    setSummaryData((prev) => ({ ...prev, activeRules: newActiveCount }));
   };
 
-  const handleRunNowConfirm = (rule) => {
-    setSelectedRunNowRule(null);
-    alert(`Automation "${rule.name}" triggered successfully! SKUs are being generated.`);
+  const handleRunNowConfirm = async (rule) => {
+    try {
+      setSelectedRunNowRule(null);
+      const res = await fetch("/api/automated-sku", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: "run-now",
+          ruleId: rule.id,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (resJson.success) {
+        alert(`Automation "${rule.name}" executed! Generated ${resJson.totalGenerated || 0} SKUs.`);
+        revalidator.revalidate();
+      } else {
+        alert(`Execution warning: ${resJson.error || "Failed to trigger rule"}`);
+      }
+    } catch (err) {
+      console.warn("Failed to trigger rule now:", err.message);
+    }
   };
 
-  const handleDeleteConfirm = (id) => {
-    const updated = rules.filter((r) => r.id !== id);
-    setRules(updated);
+  const handleDeleteConfirm = async (id) => {
+    try {
+      setSelectedDeleteRule(null);
+      const res = await fetch("/api/automated-sku", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruleId: id }),
+      });
 
-    const newActiveCount = updated.filter((r) => r.status === "Active").length;
-    setSummaryData((prev) => ({ ...prev, activeRules: newActiveCount }));
-
-    setSelectedDeleteRule(null);
+      if (res.ok) {
+        revalidator.revalidate();
+      }
+    } catch (err) {
+      console.warn("Failed to delete automation rule:", err.message);
+    }
   };
 
   return (
@@ -132,7 +219,7 @@ export default function AutoSkuPage() {
               setSearchQuery={setSearchQuery}
               onToggleStatus={handleToggleStatus}
               onEditRule={handleOpenEditModal}
-              onDuplicateRule={(r) => handleOpenEditModal({ ...r, id: `auto-${Date.now()}`, name: `${r.name} Copy` })}
+              onDuplicateRule={(r) => handleOpenEditModal({ ...r, id: null, name: `${r.name} Copy` })}
               onRunNow={(r) => setSelectedRunNowRule(r)}
               onViewHistory={(r) => setSelectedHistoryRule(r)}
               onDeleteRule={(r) => setSelectedDeleteRule(r)}

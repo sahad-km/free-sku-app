@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useLoaderData, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { getDuplicateSummaryAndGroups } from "../services/sku/duplicateScanService.server";
 import DuplicateSkuHeader from "../components/DuplicateSku/DuplicateSkuHeader";
 import DuplicateSummary from "../components/DuplicateSku/DuplicateSummary";
 import ScanStoreCard from "../components/DuplicateSku/ScanStoreCard";
@@ -12,23 +14,63 @@ import {
   ScanHistoryModal,
   ExportDuplicateModal,
 } from "../components/DuplicateSku/DuplicateModals";
-import {
-  initialDuplicateSummary,
-  initialScanSummary,
-  initialDuplicateGroups,
-} from "../components/DuplicateSku/mockData";
 import "../styles/app.duplicated-sku.css";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
+  const { session } = await authenticate.admin(request);
+  const shopDomain = session?.shop;
+
+  try {
+    const data = await getDuplicateSummaryAndGroups({ shopDomain });
+    return {
+      groups: data.groups || [],
+      summary: data.summary || {
+        duplicateGroups: 0,
+        affectedVariants: 0,
+        affectedProducts: 0,
+        riskLevel: "Low Risk",
+        lastScanDate: "Never",
+        lastScanTime: "--",
+      },
+      scanSummary: data.scanSummary || {
+        totalScanned: 0,
+        startTime: "Never scanned",
+      },
+    };
+  } catch (err) {
+    console.warn("Loader Duplicated SKU warning:", err.message);
+    return {
+      groups: [],
+      summary: {
+        duplicateGroups: 0,
+        affectedVariants: 0,
+        affectedProducts: 0,
+        riskLevel: "Low Risk",
+        lastScanDate: "Never",
+        lastScanTime: "--",
+      },
+      scanSummary: {
+        totalScanned: 0,
+        startTime: "Never scanned",
+      },
+    };
+  }
 };
 
 export default function DuplicatedSkuPage() {
+  const loaderData = useLoaderData() || {};
+  const revalidator = useRevalidator();
+
   // ─── Data State ───────────────────────────────────────────────────────
-  const [summaryData, setSummaryData] = useState(initialDuplicateSummary);
-  const [scanSummary, setScanSummary] = useState(initialScanSummary);
-  const [groups, setGroups] = useState(initialDuplicateGroups);
+  const [summaryData, setSummaryData] = useState(loaderData.summary || {});
+  const [scanSummary, setScanSummary] = useState(loaderData.scanSummary || {});
+  const [groups, setGroups] = useState(loaderData.groups || []);
+
+  useEffect(() => {
+    setSummaryData(loaderData.summary || {});
+    setScanSummary(loaderData.scanSummary || {});
+    setGroups(loaderData.groups || []);
+  }, [loaderData]);
 
   // ─── Filter & Search State ────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,15 +82,15 @@ export default function DuplicatedSkuPage() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  // ─── Filter Logic ─────────────────────────────────────────────────────
+  // ─── Filter & Sort Logic ──────────────────────────────────────────────
   const filteredGroups = useMemo(() => {
     let result = groups.filter((g) => {
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
-        const matchTitle = g.title.toLowerCase().includes(query);
-        const matchTag = g.groupTag.toLowerCase().includes(query);
-        const matchSku = g.exampleSku.toLowerCase().includes(query);
-        const matchType = g.duplicateType.toLowerCase().includes(query);
+        const matchTitle = (g.title || "").toLowerCase().includes(query);
+        const matchTag = (g.groupTag || "").toLowerCase().includes(query);
+        const matchSku = (g.exampleSku || "").toLowerCase().includes(query);
+        const matchType = (g.duplicateType || "").toLowerCase().includes(query);
 
         if (!matchTitle && !matchTag && !matchSku && !matchType) {
           return false;
@@ -58,53 +100,84 @@ export default function DuplicatedSkuPage() {
     });
 
     if (sortBy === "affected") {
-      result.sort((a, b) => b.records.length - a.records.length);
+      result.sort((a, b) => (b.records?.length || 0) - (a.records?.length || 0));
     } else if (sortBy === "name") {
-      result.sort((a, b) => a.title.localeCompare(b.title));
+      result.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     }
 
     return result;
   }, [groups, searchQuery, sortBy]);
 
   // ─── Action Handlers ──────────────────────────────────────────────────
-  const handleStartScan = () => {
+  const handleStartScan = async () => {
     setIsScanning(true);
+    try {
+      const res = await fetch("/api/duplicate-sku", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: "scan" }),
+      });
+      const resJson = await res.json();
+      setIsScanning(false);
+
+      if (resJson.success) {
+        revalidator.revalidate();
+      } else {
+        alert(`Scan warning: ${resJson.error || "Failed to scan catalog"}`);
+      }
+    } catch (err) {
+      setIsScanning(false);
+      console.warn("Scan failed:", err.message);
+    }
   };
 
-  const handleScanComplete = () => {
-    setIsScanning(false);
-    // Update last scan timestamp
-    const nowStr = `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    setSummaryData((prev) => ({
-      ...prev,
-      lastScanDate: "Today",
-      lastScanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }));
-    setScanSummary((prev) => ({
-      ...prev,
-      startTime: nowStr,
-    }));
-    alert("Store scan completed! All duplicate SKU groups are updated.");
+  const handleResolveConfirm = async (groupId, method, manualSku = "", selectedKeepId = "") => {
+    try {
+      setSelectedResolveGroup(null);
+
+      const res = await fetch("/api/duplicate-sku", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: "resolve",
+          groupId,
+          method,
+          manualSku,
+          selectedKeepId,
+        }),
+      });
+
+      const resJson = await res.json();
+
+      if (resJson.success) {
+        alert(`Duplicate group successfully resolved!`);
+        revalidator.revalidate();
+      } else {
+        alert(`Resolution error: ${resJson.error || "Failed to resolve group"}`);
+      }
+    } catch (err) {
+      console.warn("Failed to resolve group:", err.message);
+    }
   };
 
-  const handleResolveConfirm = (groupId, method) => {
-    const updated = groups.filter((g) => g.id !== groupId);
-    setGroups(updated);
+  const handleIgnoreGroup = async (group) => {
+    try {
+      const res = await fetch("/api/duplicate-sku", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: "ignore",
+          groupId: group.id,
+        }),
+      });
 
-    // Update summary count
-    setSummaryData((prev) => ({
-      ...prev,
-      duplicateGroups: Math.max(0, prev.duplicateGroups - 1),
-    }));
-
-    setSelectedResolveGroup(null);
-    alert(`Duplicate group successfully resolved using "${method}" method!`);
-  };
-
-  const handleIgnoreGroup = (group) => {
-    const updated = groups.filter((g) => g.id !== group.id);
-    setGroups(updated);
-    alert(`Group "${group.title}" marked as ignored.`);
+      if (res.ok) {
+        alert(`Group "${group.title}" marked as ignored.`);
+        revalidator.revalidate();
+      }
+    } catch (err) {
+      console.warn("Failed to ignore group:", err.message);
+    }
   };
 
   const handleExportConfirm = (format) => {
@@ -123,7 +196,7 @@ export default function DuplicatedSkuPage() {
 
         {/* ── Main 2-Column Section ────────────────────────────────── */}
         <div className="dup-main-grid">
-          {/* Left Column (~70%): Summary Cards, Scan Banner, Duplicate Table */}
+          {/* Left Column: Summary Cards, Scan Banner, Duplicate Table */}
           <div className="dup-left-section">
             <DuplicateSummary summaryData={summaryData} />
 
@@ -144,7 +217,7 @@ export default function DuplicatedSkuPage() {
             />
           </div>
 
-          {/* Right Column (~30%): Detection Guides & Scan Summary Sidebar */}
+          {/* Right Column: Detection Guides & Scan Summary Sidebar */}
           <DetectionSidebar
             scanSummary={scanSummary}
             onContactSupport={() => alert("Connecting to Shopify SKU Support...")}
@@ -156,7 +229,7 @@ export default function DuplicatedSkuPage() {
       <ScanProgressModal
         isOpen={isScanning}
         onClose={() => setIsScanning(false)}
-        onScanComplete={handleScanComplete}
+        onScanComplete={() => {}}
       />
 
       <ResolveDuplicateModal

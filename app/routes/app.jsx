@@ -22,7 +22,6 @@ export default function App() {
         <s-link href="/app/auto-sku">Auto SKU</s-link>
         <s-link href="/app/duplicated-sku">Duplicated SKU</s-link>
         <s-link href="/app/pricing">Plans & Pricing</s-link>
-        <s-link href="/app/settings">Settings</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

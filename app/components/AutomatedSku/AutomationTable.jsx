@@ -180,20 +180,24 @@ export default function AutomationTable({
                     {/* Last Run */}
                     <td>
                       <div className="last-run-cell">
-                        {row.lastRunStatus === "success" && (
+                        {(row.lastRunStatus === "success" || row.lastRunStatus === "SUCCESS") && (
                           <CheckCircleIcon size={14} color="#16A34A" />
                         )}
                         <div>
-                          <div className="last-run-date">{row.lastRunDate}</div>
-                          <div className="last-run-time">{row.lastRunTime}</div>
+                          <div className="last-run-date">
+                            {row.lastRunAt ? new Date(row.lastRunAt).toLocaleDateString() : row.lastRunDate || "Never run"}
+                          </div>
+                          <div className="last-run-time">
+                            {row.lastRunAt ? new Date(row.lastRunAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : row.lastRunTime || "--"}
+                          </div>
                         </div>
                       </div>
                     </td>
 
                     {/* SKUs Generated */}
                     <td>
-                      <div className="skus-gen-num">{row.skusGenerated}</div>
-                      <div className="skus-gen-sub">{row.skusGeneratedSubtext}</div>
+                      <div className="skus-gen-num">{Number(row.skusGenerated || 0).toLocaleString()}</div>
+                      <div className="skus-gen-sub">{row.skusGeneratedSubtext || "Total"}</div>
                     </td>
 
                     {/* Actions & Toggle */}

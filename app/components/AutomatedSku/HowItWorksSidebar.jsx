@@ -1,5 +1,5 @@
 import React from "react";
-import { LightbulbIcon, CheckCircleIcon, ClockIcon, TagIcon } from "./Icons";
+import { LightbulbIcon, CheckCircleIcon, ClockIcon, TagIcon, SettingsGearIcon } from "./Icons";
 
 export default function HowItWorksSidebar({ onCreateNewRule }) {
   return (
@@ -8,7 +8,9 @@ export default function HowItWorksSidebar({ onCreateNewRule }) {
       <div className="card sidebar-card how-it-works-card">
         <div className="how-card-header">
           <h3 className="sidebar-card-title">How automated SKU works</h3>
-          <div className="how-illustration">⚙️</div>
+          <div className="how-illustration">
+            <SettingsGearIcon size={20} color="#5B3DF5" />
+          </div>
         </div>
 
         <div className="how-steps-list">

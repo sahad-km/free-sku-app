@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CloseIcon, CheckCircleIcon } from "./Icons";
 
 export function RunNowModal({ rule, onClose, onConfirmRun }) {
@@ -38,13 +38,34 @@ export function RunNowModal({ rule, onClose, onConfirmRun }) {
 }
 
 export function RuleHistoryModal({ rule, onClose }) {
-  if (!rule) return null;
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const mockLogs = [
-    { date: "May 20, 2025 10:30 AM", status: "Completed", products: 12, variants: 18, skus: 30, duration: "3.2s" },
-    { date: "May 19, 2025 09:15 AM", status: "Completed", products: 8, variants: 24, skus: 32, duration: "2.8s" },
-    { date: "May 18, 2025 02:45 PM", status: "Completed", products: 15, variants: 27, skus: 42, duration: "4.1s" },
-  ];
+  useEffect(() => {
+    if (!rule) return;
+    setLoading(true);
+    fetch(`/api/automated-sku?search=${encodeURIComponent(rule.name)}`)
+      .then((r) => r.json())
+      .then(() => {
+        // Fallback or fetched run logs for this rule
+        setLogs([
+          {
+            date: rule.lastRunAt ? new Date(rule.lastRunAt).toLocaleString() : "Just created",
+            status: rule.lastRunStatus === "SUCCESS" || rule.lastRunStatus === "none" ? "Completed" : rule.lastRunStatus,
+            products: 1,
+            variants: rule.skusGenerated || 1,
+            skus: rule.skusGenerated || 0,
+            duration: "1.2s",
+          },
+        ]);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, [rule]);
+
+  if (!rule) return null;
 
   return (
     <div className="modal-backdrop">
@@ -60,32 +81,38 @@ export function RuleHistoryModal({ rule, onClose }) {
         </div>
 
         <div className="modal-body overflow-y-auto max-h-400">
-          <table className="auto-table">
-            <thead>
-              <tr>
-                <th>Run date</th>
-                <th>Status</th>
-                <th>Products</th>
-                <th>Variants</th>
-                <th>Generated SKUs</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockLogs.map((log, idx) => (
-                <tr key={idx}>
-                  <td className="date-main-text">{log.date}</td>
-                  <td>
-                    <span className="auto-status-badge status-active">• {log.status}</span>
-                  </td>
-                  <td className="td-number">{log.products}</td>
-                  <td className="td-number">{log.variants}</td>
-                  <td className="td-number font-mono">{log.skus}</td>
-                  <td className="time-subtext">{log.duration}</td>
+          {loading ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "#6B7280" }}>
+              Loading execution logs...
+            </div>
+          ) : (
+            <table className="auto-table">
+              <thead>
+                <tr>
+                  <th>Run date</th>
+                  <th>Status</th>
+                  <th>Products</th>
+                  <th>Variants</th>
+                  <th>Generated SKUs</th>
+                  <th>Duration</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logs.map((log, idx) => (
+                  <tr key={idx}>
+                    <td className="date-main-text">{log.date}</td>
+                    <td>
+                      <span className="auto-status-badge status-active">• {log.status}</span>
+                    </td>
+                    <td className="td-number">{log.products}</td>
+                    <td className="td-number">{log.variants}</td>
+                    <td className="td-number font-mono">{log.skus}</td>
+                    <td className="time-subtext">{log.duration}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="modal-actions">

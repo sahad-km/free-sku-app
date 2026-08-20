@@ -61,7 +61,7 @@ const GeneratedSkuSchema = new mongoose.Schema(
 
 GeneratedSkuSchema.index({ shopDomain: 1, variantId: 1 });
 GeneratedSkuSchema.index({ shopDomain: 1, newSku: 1 });
-GeneratedSkuSchema.index({ shopDomain: 1, generationRunId: 1 });
+GeneratedSkuSchema.index({ shopDomain: 1, generationRunId: 1, createdAt: -1 });
 
 export default mongoose.models.GeneratedSku ||
   mongoose.model("GeneratedSku", GeneratedSkuSchema);

@@ -1,5 +1,6 @@
 import { authenticate } from "../shopify.server";
-import { executeSkuGenerationRun } from "../services/sku/skuGenerationService";
+import { executeSkuGenerationRun } from "../services/sku/skuGenerationService.server";
+import { requireEntitlementGuard, FEATURES } from "../services/billing/entitlementService.server";
 
 export const action = async ({ request }) => {
   if (request.method !== "POST") {
@@ -11,6 +12,7 @@ export const action = async ({ request }) => {
 
   try {
     const { admin, session } = await authenticate.admin(request);
+    await requireEntitlementGuard(session.shop, FEATURES.MANUAL_GENERATE_SKU);
     const body = await request.json();
 
     const idempotencyKey = request.headers.get("idempotency-key") || body.idempotencyKey || null;

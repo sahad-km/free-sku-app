@@ -11,9 +11,13 @@ const DuplicateScanSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Completed", "In Progress", "Failed"],
+      enum: ["QUEUED", "In Progress", "Completed", "Failed"],
       default: "Completed",
       index: true,
+    },
+    totalProductsScanned: {
+      type: Number,
+      default: 0,
     },
     totalVariantsScanned: {
       type: Number,
@@ -22,6 +26,21 @@ const DuplicateScanSchema = new mongoose.Schema(
     duplicateGroupsFound: {
       type: Number,
       default: 0,
+    },
+    affectedVariants: {
+      type: Number,
+      default: 0,
+    },
+    startedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    completedAt: {
+      type: Date,
+    },
+    scanType: {
+      type: String,
+      default: "FULL_CATALOG",
     },
     error: {
       type: String,

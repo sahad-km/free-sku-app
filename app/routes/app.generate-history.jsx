@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate, useLoaderData, useFetcher, useSubmit } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import SkuHistoryHeader from "../components/SkuHistory/SkuHistoryHeader";
@@ -12,26 +12,118 @@ import {
   DeleteHistoryModal,
   ExportModal,
 } from "../components/SkuHistory/HistoryModals";
-import { initialHistoryRecords, initialSummaryData } from "../components/SkuHistory/mockData";
 import "../styles/app.generate-history.css";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
+  const { session } = await authenticate.admin(request);
+  const shopDomain = session?.shop;
+
+  if (!shopDomain) {
+    throw new Response("Unauthorized Shopify session", { status: 401 });
+  }
+
+  const { getSkuHistoryList, getSkuHistorySummary } = await import("../services/sku/skuHistoryService.server");
+
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  const statusFilter = url.searchParams.get("status") || "All";
+  const ruleTypeFilter = url.searchParams.get("ruleType") || "All";
+  const activeTab = url.searchParams.get("tab") || "All history";
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+
+  const [historyData, summaryData] = await Promise.all([
+    getSkuHistoryList({
+      shopDomain,
+      page,
+      limit,
+      search,
+      statusFilter,
+      ruleTypeFilter,
+      activeTab,
+    }),
+    getSkuHistorySummary({ shopDomain }),
+  ]);
+
+  return {
+    records: historyData.items || [],
+    summaryData,
+    pagination: historyData.pagination,
+  };
+};
+
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const shopDomain = session?.shop;
+
+  if (!shopDomain) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { deleteSkuHistoryRecord, exportSkuHistoryRecords, getGeneratedSkusForRun } = await import("../services/sku/skuHistoryService.server");
+
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "delete") {
+    const runId = formData.get("runId");
+    const result = await deleteSkuHistoryRecord({ shopDomain, runId });
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (intent === "export") {
+    const format = formData.get("format") || "csv";
+    const exportData = await exportSkuHistoryRecords({ shopDomain, format });
+    return new Response(exportData.content, {
+      status: 200,
+      headers: {
+        "Content-Type": exportData.mimeType,
+        "Content-Disposition": `attachment; filename="${exportData.filename}"`,
+      },
+    });
+  }
+
+  if (intent === "fetch-skus") {
+    const runId = formData.get("runId");
+    const result = await getGeneratedSkusForRun({ shopDomain, runId, limit: 100 });
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ error: "Invalid intent" }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
 };
 
 export default function GenerateHistoryPage() {
   const navigate = useNavigate();
+  const loaderData = useLoaderData();
+  const fetcher = useFetcher();
 
   // ─── Data State ───────────────────────────────────────────────────────
-  const [records, setRecords] = useState(initialHistoryRecords);
-  const [summaryData, setSummaryData] = useState(initialSummaryData);
+  const [records, setRecords] = useState(loaderData?.records || []);
+  const [summaryData, setSummaryData] = useState(loaderData?.summaryData || {});
+
+  // Sync state when loaderData changes
+  useEffect(() => {
+    if (loaderData?.records) setRecords(loaderData.records);
+    if (loaderData?.summaryData) setSummaryData(loaderData.summaryData);
+  }, [loaderData]);
 
   // ─── Filter & Search State ────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [ruleTypeFilter, setRuleTypeFilter] = useState("All");
-  const [dateRange, setDateRange] = useState("May 14 – May 20, 2025");
+  const [dateRange, setDateRange] = useState("All time");
   const [activeTab, setActiveTab] = useState("All history");
 
   // ─── Modal States ─────────────────────────────────────────────────────
@@ -39,8 +131,9 @@ export default function GenerateHistoryPage() {
   const [selectedSkusRecord, setSelectedSkusRecord] = useState(null);
   const [selectedDeleteRecord, setSelectedDeleteRecord] = useState(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isLoadingSkus, setIsLoadingSkus] = useState(false);
 
-  // ─── Filter Logic ─────────────────────────────────────────────────────
+  // ─── Client Filter Logic ─────────────────────────────────────────────
   const filteredRecords = useMemo(() => {
     return records.filter((rec) => {
       // Tab filter
@@ -80,35 +173,64 @@ export default function GenerateHistoryPage() {
   };
 
   // ─── Actions ──────────────────────────────────────────────────────────
-  const handleRunAgain = (record) => {
-    // Navigate to Generate SKU page with pre-filled state
+  const handleRunAgain = () => {
     navigate("/app/generate-sku");
   };
 
-  const handleDuplicateRule = (record) => {
+  const handleDuplicateRule = () => {
     navigate("/app/generate-sku");
+  };
+
+  const handleViewGeneratedSkus = async (record) => {
+    setSelectedSkusRecord(record);
+    setIsLoadingSkus(true);
+
+    try {
+      const res = await fetch(`/api/generate-sku/runs/${record.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.auditLogs) {
+          setSelectedSkusRecord({
+            ...record,
+            generatedSkus: data.auditLogs,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch generated SKUs:", err);
+    } finally {
+      setIsLoadingSkus(false);
+    }
   };
 
   const handleDeleteConfirm = (id) => {
-    const updated = records.filter((r) => r.id !== id);
-    setRecords(updated);
-
-    // Update summary counts
+    // Optimistic UI update
+    setRecords((prev) => prev.filter((r) => r.id !== id));
     setSummaryData((prev) => ({
       ...prev,
-      totalExecuted: Math.max(0, prev.totalExecuted - 1),
+      totalExecuted: Math.max(0, (prev.totalExecuted || 1) - 1),
     }));
 
     setSelectedDeleteRecord(null);
+
+    // Backend deletion trigger
+    const formData = new FormData();
+    formData.append("intent", "delete");
+    formData.append("runId", id);
+    fetcher.submit(formData, { method: "post" });
   };
 
   const handleExportConfirm = (format) => {
     setIsExportModalOpen(false);
-    alert(`SKU History successfully exported as ${format.toUpperCase()}!`);
+    const formData = new FormData();
+    formData.append("intent", "export");
+    formData.append("format", format);
+
+    fetcher.submit(formData, { method: "post" });
   };
 
   const handleRefresh = () => {
-    alert("History refreshed!");
+    navigate(".", { replace: true });
   };
 
   return (
@@ -141,7 +263,7 @@ export default function GenerateHistoryPage() {
           setActiveTab={setActiveTab}
           onRefresh={handleRefresh}
           onViewDetails={(rec) => setSelectedDetailRecord(rec)}
-          onViewGeneratedSkus={(rec) => setSelectedSkusRecord(rec)}
+          onViewGeneratedSkus={handleViewGeneratedSkus}
           onRunAgain={handleRunAgain}
           onDuplicateRule={handleDuplicateRule}
           onDeleteRecord={(rec) => setSelectedDeleteRecord(rec)}

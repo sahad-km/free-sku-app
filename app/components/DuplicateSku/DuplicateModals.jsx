@@ -1,14 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CloseIcon } from "./Icons";
 
 export function ScanHistoryModal({ isOpen, onClose }) {
-  if (!isOpen) return null;
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const mockScanLogs = [
-    { date: "May 20, 2025 10:30 AM", type: "Full scan", skusScanned: "1,842", duplicatesFound: 24, duration: "2m 34s", status: "Completed" },
-    { date: "May 12, 2025 04:15 PM", type: "Partial scan", skusScanned: "1,200", duplicatesFound: 18, duration: "1m 45s", status: "Completed" },
-    { date: "May 01, 2025 09:00 AM", type: "Full scan", skusScanned: "1,750", duplicatesFound: 32, duration: "2m 20s", status: "Completed" },
-  ];
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    fetch("/api/duplicate-sku?intent=history")
+      .then((r) => r.json())
+      .then((data) => {
+        setLogs(data.history || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-backdrop">
@@ -21,32 +32,42 @@ export function ScanHistoryModal({ isOpen, onClose }) {
         </div>
 
         <div className="modal-body overflow-y-auto max-h-400">
-          <table className="dup-table">
-            <thead>
-              <tr>
-                <th>Scan Date</th>
-                <th>Scan Type</th>
-                <th>SKUs Scanned</th>
-                <th>Duplicates Found</th>
-                <th>Duration</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockScanLogs.map((log, idx) => (
-                <tr key={idx}>
-                  <td className="date-main-text">{log.date}</td>
-                  <td className="td-number">{log.type}</td>
-                  <td className="td-number">{log.skusScanned}</td>
-                  <td className="td-number text-orange-warning font-bold">{log.duplicatesFound}</td>
-                  <td className="time-subtext">{log.duration}</td>
-                  <td>
-                    <span className="dup-status-badge badge-completed">{log.status}</span>
-                  </td>
+          {loading ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "#6B7280" }}>
+              Loading scan history...
+            </div>
+          ) : logs.length === 0 ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "#6B7280" }}>
+              No scan history records found. Run a store scan to get started!
+            </div>
+          ) : (
+            <table className="dup-table">
+              <thead>
+                <tr>
+                  <th>Scan Date</th>
+                  <th>Scan Type</th>
+                  <th>SKUs Scanned</th>
+                  <th>Duplicates Found</th>
+                  <th>Duration</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logs.map((log, idx) => (
+                  <tr key={idx}>
+                    <td className="date-main-text">{log.date}</td>
+                    <td className="td-number">Full scan</td>
+                    <td className="td-number">{Number(log.scanned || 0).toLocaleString()}</td>
+                    <td className="td-number text-orange-warning font-bold">{log.duplicates}</td>
+                    <td className="time-subtext">{log.duration}</td>
+                    <td>
+                      <span className="dup-status-badge badge-completed">{log.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="modal-actions">

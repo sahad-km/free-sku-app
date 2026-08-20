@@ -3,7 +3,7 @@ import IncludedBenefitsPanel from "./IncludedBenefitsPanel";
 import { LeafIcon, CrownIcon, RocketIcon, BuildingIcon, CheckIcon, StarIcon } from "./Icons";
 import { plans } from "./mockData";
 
-export default function PricingCardGrid({ billingInterval, onSelectPlan, currentPlan }) {
+export default function PricingCardGrid({ billingInterval, onSelectPlan, currentPlan, isSubmitting }) {
   const isAnnual = billingInterval === "annual";
 
   const renderPlanIcon = (type, color) => {
@@ -25,12 +25,13 @@ export default function PricingCardGrid({ billingInterval, onSelectPlan, current
       {/* Left Benefits Panel */}
       <IncludedBenefitsPanel />
 
-      {/* 4 Pricing Cards */}
+      {/* 3 Pricing Cards */}
       <div className="pricing-cards-flex">
         {plans.map((plan) => {
           const isPopular = plan.isPopular;
           const isCurrent = currentPlan === plan.name;
-          const displayPrice = isAnnual ? plan.annualMonthlyPrice : plan.monthlyPrice;
+          const displayPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+          const displayPeriod = isAnnual ? "/ year" : "/ month";
 
           return (
             <div
@@ -60,37 +61,29 @@ export default function PricingCardGrid({ billingInterval, onSelectPlan, current
 
               {/* Pricing Section */}
               <div className="pricing-amount-section">
-                {!plan.isCustom ? (
-                  <>
-                    <div className="price-row">
-                      <span className="currency-symbol">$</span>
-                      <span className="price-number">{displayPrice}</span>
-                      <span className="price-period">/ month</span>
-                    </div>
+                <div className="price-row">
+                  <span className="currency-symbol">$</span>
+                  <span className="price-number">{displayPrice}</span>
+                  <span className="price-period">{displayPeriod}</span>
+                </div>
 
-                    <div className="price-subtext">
-                      {isAnnual ? (
-                        <>
-                          Billed annually at ${plan.annualTotalPrice}
-                          {plan.strikethroughAnnualTotal && (
-                            <span className="strikethrough-price">
-                              {" "}${plan.strikethroughAnnualTotal}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        "Billed monthly"
-                      )}
+                <div className="price-subtext">
+                  {plan.monthlyPrice === 0 ? (
+                    "Free forever"
+                  ) : isAnnual ? (
+                    <div className="annual-price-sub-flex">
+                      <span>
+                        Billed ${plan.annualPrice}/yr (
+                        <span className="strikethrough-price">${plan.fullYearMonthlyCost}</span>)
+                      </span>
+                      <span className="savings-badge-pill">
+                        Save ${plan.annualSavings}/yr
+                      </span>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="price-row">
-                      <span className="custom-price-title">{plan.customPriceText}</span>
-                    </div>
-                    <div className="price-subtext">{plan.customPriceSubtext}</div>
-                  </>
-                )}
+                  ) : (
+                    `Billed $${plan.monthlyPrice} monthly`
+                  )}
+                </div>
               </div>
 
               {/* CTA Button */}
@@ -104,10 +97,10 @@ export default function PricingCardGrid({ billingInterval, onSelectPlan, current
                       : "btn-purple-outline"
                   }`}
                   onClick={() => onSelectPlan(plan)}
-                  disabled={isCurrent}
+                  disabled={isCurrent || isSubmitting}
                   type="button"
                 >
-                  {isCurrent ? "Current plan" : plan.buttonText}
+                  {isCurrent ? "Current plan" : isSubmitting ? "Processing..." : plan.buttonText}
                 </button>
               </div>
 

@@ -39,8 +39,8 @@ export async function getDashboardData({ admin, session }) {
         shopDoc = await Shop.create({
           shopDomain,
           shopName,
-          plan: "Pro",
-          creditsAllocated: 100,
+          plan: "Free",
+          creditsAllocated: 500,
           creditsUsed: 0,
           installationStatus: "active",
           lastSeenAt: new Date(),
@@ -237,7 +237,7 @@ export async function getDashboardData({ admin, session }) {
     shop: {
       domain: shopDomain,
       name: shopName,
-      plan: shopDoc?.plan || "Pro",
+      plan: shopDoc?.plan || "Free",
     },
     kpiData,
     chartData,

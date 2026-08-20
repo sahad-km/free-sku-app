@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheckIcon, StarIcon } from "./Icons";
+import { ShieldCheckIcon, UserIcon, CodeIcon, StoreIcon } from "./Icons";
 
 export default function MoneyBackBanner() {
   return (
@@ -9,30 +9,29 @@ export default function MoneyBackBanner() {
           <ShieldCheckIcon size={22} color="#16A34A" />
         </div>
         <div>
-          <h4 className="guarantee-title">30-Day Money Back Guarantee</h4>
+          <h4 className="guarantee-title">3-Day Free Trial Included</h4>
           <p className="guarantee-desc">
-            Try SKU Generator risk-free. If you're not happy with our app, get a full refund within 30 days.
+            Try SKU Generator risk-free on all paid plans. Cancel anytime.
           </p>
         </div>
       </div>
 
-      <div className="banner-right-trust">
+      <div className="banner-right-trust-card">
         <div className="avatar-stack-container">
-          <div className="avatar-circle avatar-1">👨</div>
-          <div className="avatar-circle avatar-2">👩</div>
-          <div className="avatar-circle avatar-3">👨‍💼</div>
-          <div className="avatar-count-badge">2k+</div>
-        </div>
-
-        <div className="trust-rating-info">
-          <span className="trusted-text">Trusted by 2,000+ Shopify stores</span>
-          <div className="stars-row">
-            {[...Array(5)].map((_, i) => (
-              <StarIcon key={i} size={12} color="#EAB308" />
-            ))}
-            <span className="rating-num">4.9/5 average rating</span>
+          <div className="avatar-circle avatar-1 bg-blue-light">
+            <UserIcon size={14} color="#2563EB" />
           </div>
+          <div className="avatar-circle avatar-2 bg-purple-light">
+            <CodeIcon size={14} color="#7C3AED" />
+          </div>
+          <div className="avatar-circle avatar-3 bg-green-light">
+            <StoreIcon size={14} color="#16A34A" />
+          </div>
+          <div className="avatar-count-badge">5y+</div>
         </div>
+        <span className="trusted-text">
+          5+ years of experience in store management and custom solution building
+        </span>
       </div>
     </div>
   );

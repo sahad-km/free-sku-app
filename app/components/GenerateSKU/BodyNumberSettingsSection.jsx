@@ -10,6 +10,9 @@ export default function BodyNumberSettingsSection({
   setNumberPadding,
   incrementStep,
   setIncrementStep,
+  randomDigits = 4,
+  setRandomDigits,
+  lastSequenceNumber = 1,
   prefix,
   suffix,
   separator,
@@ -26,8 +29,8 @@ export default function BodyNumberSettingsSection({
     {
       id: "continue",
       title: "Continue from last",
-      badge: "Paid",
-      description: "Resume numbering from the last generated SKU in the previous batch.",
+      badge: "Active",
+      description: "Resume numbering from the last generated SKU in your store.",
     },
     {
       id: "disabled",
@@ -37,21 +40,21 @@ export default function BodyNumberSettingsSection({
     {
       id: "productId",
       title: "Product ID as number",
-      description: "Use the product's unique identifier as the numeric body.",
+      description: "Use only the numeric digits of the product's ID as the body.",
     },
     {
       id: "variantId",
       title: "Variant ID as number",
-      description: "Use the variant's unique identifier as the numeric body.",
+      description: "Use only the numeric digits of the variant's ID as the body.",
     },
     {
       id: "random",
       title: "Random number",
-      description: "Generate a random number for each SKU.",
+      description: "Generate a random number for each SKU with specified digits.",
     },
   ];
 
-  // Helper to compute sample previews for the sequential sub-box
+  // Helper to compute sample previews for sequential / continue
   const getSepChar = () => {
     if (separator === "dash" || separator === "-") return "-";
     if (separator === "underscore" || separator === "_") return "_";
@@ -64,13 +67,16 @@ export default function BodyNumberSettingsSection({
 
   const sep = getSepChar();
   const pad = Math.max(0, parseInt(numberPadding, 10) || 0);
-  const start = parseInt(startNumber, 10) || 1;
+  const start = bodyNumberType === "continue"
+    ? (parseInt(lastSequenceNumber, 10) || 1)
+    : (parseInt(startNumber, 10) || 1);
+  const step = parseInt(incrementStep, 10) || 1;
   const pFix = prefix ? `${prefix}${sep}` : "";
   const sFix = suffix ? `${sep}${suffix}` : "";
 
   const prev1 = `${pFix}${start.toString().padStart(pad, "0")}${sFix}`;
-  const prev2 = `${pFix}${(start + 1).toString().padStart(pad, "0")}${sFix}`;
-  const prev3 = `${pFix}${(start + 2).toString().padStart(pad, "0")}${sFix}`;
+  const prev2 = `${pFix}${(start + step).toString().padStart(pad, "0")}${sFix}`;
+  const prev3 = `${pFix}${(start + step * 2).toString().padStart(pad, "0")}${sFix}`;
 
   return (
     <div className="card section-card">
@@ -129,20 +135,31 @@ export default function BodyNumberSettingsSection({
             })}
           </div>
 
-          {/* Sequential Controls Sub-box */}
+          {/* Sequential & Continue Controls Sub-box */}
           {(bodyNumberType === "sequential" || bodyNumberType === "continue") && (
             <div className="sequential-controls-box">
-              <div className="sequential-fields-row">
-                <div className="field-group">
-                  <label className="field-label">Start number</label>
-                  <input
-                    type="number"
-                    className="text-input"
-                    value={startNumber}
-                    onChange={(e) => setStartNumber(e.target.value)}
-                    min="0"
-                  />
+              {bodyNumberType === "continue" && (
+                <div className="tip-info-row" style={{ marginBottom: "12px", backgroundColor: "#EFF6FF", color: "#1D4ED8", padding: "10px", borderRadius: "6px" }}>
+                  <InfoIcon size={16} color="#2563EB" />
+                  <span>
+                    <strong>Continue from last:</strong> Numbering will automatically resume from sequence <strong>#{lastSequenceNumber || 1}</strong>.
+                  </span>
                 </div>
+              )}
+
+              <div className="sequential-fields-row">
+                {bodyNumberType === "sequential" && (
+                  <div className="field-group">
+                    <label className="field-label">Start number</label>
+                    <input
+                      type="number"
+                      className="text-input"
+                      value={startNumber}
+                      onChange={(e) => setStartNumber(e.target.value)}
+                      min="0"
+                    />
+                  </div>
+                )}
 
                 <div className="field-group">
                   <label className="field-label">Number padding</label>
@@ -175,10 +192,70 @@ export default function BodyNumberSettingsSection({
                 <span>
                   Tip: With padding "{numberPadding}", numbers will be formatted as{" "}
                   {start.toString().padStart(pad, "0")},{" "}
-                  {(start + 1).toString().padStart(pad, "0")},{" "}
-                  {(start + 2).toString().padStart(pad, "0")}...
+                  {(start + step).toString().padStart(pad, "0")},{" "}
+                  {(start + step * 2).toString().padStart(pad, "0")}...
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* Random Number Controls Sub-box */}
+          {bodyNumberType === "random" && (
+            <div className="sequential-controls-box" style={{ backgroundColor: "#F9FAFB", padding: "16px", borderRadius: "8px", border: "1px solid #E5E7EB", marginTop: "16px" }}>
+              <div className="sequential-fields-row" style={{ alignItems: "center" }}>
+                <div className="field-group" style={{ maxWidth: "200px" }}>
+                  <label className="field-label" style={{ fontWeight: 600 }}>Number of digits</label>
+                  <div className="input-with-suffix">
+                    <input
+                      type="number"
+                      className="text-input"
+                      value={randomDigits}
+                      onChange={(e) => setRandomDigits && setRandomDigits(e.target.value)}
+                      min="1"
+                      max="10"
+                    />
+                    <span className="input-suffix-tag">digits</span>
+                  </div>
+                </div>
+
+                <div className="field-group flex-1">
+                  <label className="field-label" style={{ fontWeight: 600 }}>Example random output</label>
+                  <div className="preview-pills-row">
+                    <span className="sku-pill-tag" style={{ fontFamily: "monospace" }}>
+                      {pFix}{"7".repeat(Math.max(1, Math.min(10, parseInt(randomDigits, 10) || 4)))}{sFix}
+                    </span>
+                    <span className="sku-pill-tag" style={{ fontFamily: "monospace" }}>
+                      {pFix}{"3".repeat(Math.max(1, Math.min(10, parseInt(randomDigits, 10) || 4)))}{sFix}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="tip-info-row" style={{ marginTop: "10px" }}>
+                <InfoIcon size={14} color="#5B3DF5" />
+                <span>
+                  Random numbers will be generated with exactly {randomDigits || 4} digit(s) for each SKU.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Disabled Info Box */}
+          {bodyNumberType === "disabled" && (
+            <div style={{ backgroundColor: "#F9FAFB", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E5E7EB", marginTop: "16px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <InfoIcon size={16} color="#6B7280" />
+              <span style={{ fontSize: "13px", color: "#374151" }}>
+                Body number is disabled. SKUs will be constructed using only Prefix, Suffix, and Metafields without any body number.
+              </span>
+            </div>
+          )}
+
+          {/* Product ID & Variant ID Info Box */}
+          {(bodyNumberType === "productId" || bodyNumberType === "variantId") && (
+            <div style={{ backgroundColor: "#F9FAFB", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E5E7EB", marginTop: "16px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <InfoIcon size={16} color="#5B3DF5" />
+              <span style={{ fontSize: "13px", color: "#374151" }}>
+                Only the numeric digit portion of the Shopify {bodyNumberType === "productId" ? "Product ID" : "Variant ID"} will be included (non-digit characters will be stripped).
+              </span>
             </div>
           )}
         </div>

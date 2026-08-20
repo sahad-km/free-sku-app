@@ -11,6 +11,9 @@ import {
   MugIcon,
   CapIcon,
   BottleIcon,
+  EyeIcon,
+  WrenchIcon,
+  EyeOffIcon,
 } from "./Icons";
 
 export default function DuplicateTable({
@@ -195,27 +198,31 @@ export default function DuplicateTable({
                                 }}
                                 type="button"
                               >
-                                View details
+                                <EyeIcon size={14} color="#4B5563" />
+                                <span>View details</span>
                               </button>
                               <button
-                                className="dropdown-menu-item"
+                                className="dropdown-menu-item menu-item-primary"
                                 onClick={() => {
                                   closeMenu();
                                   onResolveDuplicate(group);
                                 }}
                                 type="button"
                               >
-                                Resolve duplicate
+                                <WrenchIcon size={14} color="#5B3DF5" />
+                                <span>Resolve duplicate</span>
                               </button>
+                              <div className="menu-divider" />
                               <button
-                                className="dropdown-menu-item"
+                                className="dropdown-menu-item menu-item-muted"
                                 onClick={() => {
                                   closeMenu();
                                   onIgnoreGroup(group);
                                 }}
                                 type="button"
                               >
-                                Ignore duplicate
+                                <EyeOffIcon size={14} color="#9CA3AF" />
+                                <span>Ignore duplicate</span>
                               </button>
                             </div>
                           )}

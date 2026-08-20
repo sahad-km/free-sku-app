@@ -30,34 +30,49 @@ export const LayersIcon = ({ size = 18, color = "currentColor" }) => (
   </svg>
 );
 
-export const UserWandIcon = ({ size = 20, color = "currentColor" }) => (
+// export const GenerateSkuIcon = ({ size = 18, color = "currentColor" }) => (
+//   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+//     <path d="M15 4l5 5" />
+//     <path d="M3 21l9-9" />
+//     <path d="M12.2 6.8l5 5" />
+//     <path d="M18 2l.8 1.6L20.4 4.4l-1.6.8L18 6.8l-.8-1.6L15.6 4.4l1.6-.8L18 2z" fill={color} />
+//   </svg>
+// );
+
+export const GenerateSkuIcon = ({ size = 18, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M19 8v4" />
-    <path d="M17 10h4" />
+    <line x1="5" y1="19" x2="15" y2="9" />
+    <path
+      d="M18.5 2.5l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"
+      fill={color}
+      stroke="none"
+    />
+    <path
+      d="M6 3.5l.6 1.8L8.4 6l-1.8.6L6 8.4l-.6-1.8L3.6 6l1.8-.6z"
+      fill={color}
+      stroke="none"
+    />
   </svg>
 );
 
-export const HistoryVideoIcon = ({ size = 20, color = "currentColor" }) => (
+export const HistoryClockIcon = ({ size = 18, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="4" width="20" height="16" rx="3" />
-    <polygon points="10 9 15 12 10 15 10 9" />
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
   </svg>
 );
 
-export const AutomationsIcon = ({ size = 20, color = "currentColor" }) => (
+export const AutomationsIcon = ({ size = 18, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z" />
-    <path d="M12 6v6l4 2" />
-    <path d="M16.24 7.76a6 6 0 1 0 0 8.49" />
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
   </svg>
 );
 
-export const DuplicateIcon = ({ size = 20, color = "currentColor" }) => (
+export const DuplicateIcon = ({ size = 18, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="8" y="8" width="13" height="13" rx="2" ry="2" />
-    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    <rect x="9" y="9" width="12" height="12" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 );
 
@@ -83,10 +98,13 @@ export const ScannerIcon = ({ size = 20, color = "currentColor" }) => (
 
 export const RulesNodesIcon = ({ size = 20, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="18" cy="6" r="3" />
-    <circle cx="6" cy="18" r="3" />
-    <path d="M18 9v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9" />
-    <line x1="12" y1="13" x2="12" y2="21" />
+    <circle cx="5" cy="5" r="2.5" />
+    <circle cx="19" cy="5" r="2.5" />
+    <path d="M12 10 L15 13 L12 16 L9 13 Z" />
+    <path d="M6.8 6.8 L9.5 11.5" />
+    <path d="M17.2 6.8 L14.5 11.5" />
+    <circle cx="12" cy="20.5" r="2.5" />
+    <line x1="12" y1="16" x2="12" y2="18" />
   </svg>
 );
 

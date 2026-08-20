@@ -1,8 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router";
 import {
-  UserWandIcon,
-  HistoryVideoIcon,
+  GenerateSkuIcon,
+  HistoryClockIcon,
   AutomationsIcon,
   DuplicateIcon,
   ChevronRightIcon,
@@ -14,15 +14,16 @@ export default function QuickActions({ items }) {
   const renderIcon = (type) => {
     switch (type) {
       case "userWand":
-        return <UserWandIcon size={18} color="#5B3DF5" />;
+      case "generate":
+        return <GenerateSkuIcon size={18} color="#5B3DF5" />;
       case "history":
-        return <HistoryVideoIcon size={18} color="#5B3DF5" />;
+        return <HistoryClockIcon size={18} color="#5B3DF5" />;
       case "automations":
         return <AutomationsIcon size={18} color="#5B3DF5" />;
       case "duplicate":
         return <DuplicateIcon size={18} color="#5B3DF5" />;
       default:
-        return <UserWandIcon size={18} color="#5B3DF5" />;
+        return <GenerateSkuIcon size={18} color="#5B3DF5" />;
     }
   };
 

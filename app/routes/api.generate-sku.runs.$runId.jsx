@@ -1,7 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { connectMongoose } from "../db.mongoose.server";
-import SkuGenerationRun from "../models/SkuGenerationRun.server";
-import GeneratedSku from "../models/GeneratedSku.server";
+import { getSkuHistoryDetail, getGeneratedSkusForRun } from "../services/sku/skuHistoryService.server";
 
 export const loader = async ({ request, params }) => {
   const { session } = await authenticate.admin(request);
@@ -12,21 +10,21 @@ export const loader = async ({ request, params }) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  await connectMongoose();
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  const limit = url.searchParams.get("limit") || 100;
 
-  const runDoc = await SkuGenerationRun.findOne({ _id: runId, shopDomain });
-  if (!runDoc) {
-    return new Response(JSON.stringify({ error: "Run not found" }), { status: 404 });
+  const runDetail = await getSkuHistoryDetail({ shopDomain, runId });
+  if (!runDetail) {
+    return new Response(JSON.stringify({ error: "Run not found or unauthorized" }), { status: 404 });
   }
 
-  const auditLogs = await GeneratedSku.find({ generationRunId: runId, shopDomain })
-    .sort({ createdAt: -1 })
-    .limit(100);
+  const { items: auditLogs } = await getGeneratedSkusForRun({ shopDomain, runId, search, limit });
 
   return new Response(
     JSON.stringify({
       success: true,
-      run: runDoc,
+      run: runDetail,
       auditLogs,
     }),
     {

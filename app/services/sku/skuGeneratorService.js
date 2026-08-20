@@ -14,27 +14,34 @@ export function calculateBodyValue({
   numberPadding = 4,
   incrementStep = 1,
   index = 0,
-  body = "0",
+  body = "",
   sequenceNumber = null,
+  randomDigits = 4,
 }) {
   if (bodyNumberType === "disabled") {
-    return body || "";
+    return "";
   }
 
   if (bodyNumberType === "productId") {
-    // Extract raw numeric ID from GID if present
-    const rawId = (product.id || product.productId || "").toString().replace(/^gid:\/\/shopify\/Product\//, "");
-    return rawId || "0";
+    // Extract ONLY numeric digits from product ID
+    const rawId = (product.id || product.productId || "").toString();
+    const digitsOnly = rawId.replace(/\D/g, "");
+    return digitsOnly || "0";
   }
 
   if (bodyNumberType === "variantId") {
-    const rawId = (variant.id || variant.variantId || "").toString().replace(/^gid:\/\/shopify\/ProductVariant\//, "");
-    return rawId || "0";
+    // Extract ONLY numeric digits from variant ID
+    const rawId = (variant.id || variant.variantId || "").toString();
+    const digitsOnly = rawId.replace(/\D/g, "");
+    return digitsOnly || "0";
   }
 
   if (bodyNumberType === "random") {
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return rand.toString();
+    const digits = Math.max(1, Math.min(10, parseInt(randomDigits, 10) || 4));
+    const min = Math.pow(10, digits - 1);
+    const max = Math.pow(10, digits) - 1;
+    const rand = Math.floor(min + Math.random() * (max - min + 1));
+    return rand.toString().padStart(digits, "0");
   }
 
   // Sequential or Continue from last
@@ -108,6 +115,7 @@ export function generateSkuForVariant({
     startNumber = 1,
     numberPadding = 4,
     incrementStep = 1,
+    randomDigits = 4,
     skuComponents = [],
     separator = "none",
     customSeparator = "",
@@ -148,6 +156,7 @@ export function generateSkuForVariant({
     index,
     body,
     sequenceNumber,
+    randomDigits,
   });
 
   // If no skuComponents array was provided or it's empty, use standard Prefix-Body-Suffix
@@ -168,7 +177,8 @@ export function generateSkuForVariant({
       return prefix || comp.value || "";
     }
     if (compType === "body") {
-      return numericBodyVal || body || comp.value || "";
+      if (bodyNumberType === "disabled") return "";
+      return numericBodyVal;
     }
     if (compType === "suffix") {
       return suffix || comp.value || "";

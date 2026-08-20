@@ -24,6 +24,8 @@ const shopify = shopifyApp({
     : {}),
 });
 
+import { initSkuWorker } from "./services/queue/skuWorkerService.server";
+
 export default shopify;
 export const apiVersion = ApiVersion.October25;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
@@ -32,3 +34,8 @@ export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;
+
+// Boot worker listener if Redis is configured
+if (process.env.REDIS_URL || process.env.REDIS_KV_URL) {
+  initSkuWorker();
+}

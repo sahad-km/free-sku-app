@@ -32,8 +32,8 @@ const ShopSchema = new mongoose.Schema(
     },
     plan: {
       type: String,
-      enum: ["Basic", "Pro", "Advanced", "Enterprise"],
-      default: "Pro",
+      enum: ["Free", "Basic", "Pro"],
+      default: "Free",
     },
     creditsAllocated: {
       type: Number,

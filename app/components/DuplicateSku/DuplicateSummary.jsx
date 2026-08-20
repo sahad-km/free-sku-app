@@ -3,47 +3,45 @@ import { TagIcon, AlertTriangleIcon, ClusterIcon, ShieldCheckIcon } from "./Icon
 
 export default function DuplicateSummary({ summaryData }) {
   const {
-    totalSkusScanned = "1,842",
-    lastScanDate = "May 20, 2025",
-    duplicateGroups = 18,
-    affectingSkusTotal = 96,
-    exactDuplicates = 42,
-    affectingExactSkus = 42,
-    potentialDuplicates = 54,
-    affectingPotentialSkus = 54,
+    duplicateGroups = 0,
+    affectedVariants = 0,
+    affectedProducts = 0,
+    riskLevel = "Low Risk",
+    lastScanDate = "Never",
+    lastScanTime = "--",
   } = summaryData || {};
 
   const cards = [
     {
-      title: "Total SKUs scanned",
-      value: totalSkusScanned,
-      subtext: `Last scan: ${lastScanDate}`,
-      icon: <TagIcon size={18} color="#5B3DF5" />,
-      iconBg: "bg-purple-light",
-    },
-    {
       title: "Duplicate groups",
-      value: duplicateGroups,
-      subtext: `Affecting ${affectingSkusTotal} SKUs`,
-      subtextClass: "text-orange-warning",
+      value: Number(duplicateGroups).toLocaleString(),
+      subtext: `Affecting ${Number(affectedVariants).toLocaleString()} variants`,
+      subtextClass: duplicateGroups > 0 ? "text-orange-warning" : "",
       icon: <AlertTriangleIcon size={18} color="#D97706" />,
       iconBg: "bg-orange-light",
     },
     {
-      title: "Exact duplicates",
-      value: exactDuplicates,
-      subtext: `Affecting ${affectingExactSkus} SKUs`,
-      subtextClass: "text-red-error",
+      title: "Affected variants",
+      value: Number(affectedVariants).toLocaleString(),
+      subtext: `${affectedProducts} products affected`,
+      subtextClass: affectedVariants > 0 ? "text-red-error" : "",
       icon: <ClusterIcon size={18} color="#DC2626" />,
       iconBg: "bg-red-light",
     },
     {
-      title: "Potential duplicates",
-      value: potentialDuplicates,
-      subtext: `Affecting ${affectingPotentialSkus} SKUs`,
-      subtextClass: "text-green-success",
+      title: "Detection status",
+      value: riskLevel,
+      subtext: duplicateGroups === 0 ? "No duplicates found" : "Action required",
+      subtextClass: duplicateGroups === 0 ? "text-green-success" : "text-orange-warning",
       icon: <ShieldCheckIcon size={18} color="#16A34A" />,
       iconBg: "bg-green-light",
+    },
+    {
+      title: "Last scan",
+      value: lastScanDate,
+      subtext: lastScanTime,
+      icon: <TagIcon size={18} color="#5B3DF5" />,
+      iconBg: "bg-purple-light",
     },
   ];
 

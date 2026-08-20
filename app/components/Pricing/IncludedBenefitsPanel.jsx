@@ -11,7 +11,7 @@ export default function IncludedBenefitsPanel() {
         <div>
           <h4 className="benefit-box-title">All plans include</h4>
           <p className="benefit-box-desc">
-            Unlimited rule creation, 24/7 support and regular updates.
+            Unlimited rule creation, full dedicated support and regular updates.
           </p>
         </div>
       </div>
@@ -21,9 +21,9 @@ export default function IncludedBenefitsPanel() {
           <ShieldCheckIcon size={18} color="#5B3DF5" />
         </div>
         <div>
-          <h4 className="benefit-box-title">30-day money back</h4>
+          <h4 className="benefit-box-title">3-day free trial</h4>
           <p className="benefit-box-desc">
-            Not satisfied? Get a full refund within 30 days of purchase.
+            Try any plan risk-free with a 3-day free trial. Cancel anytime before trial ends.
           </p>
         </div>
       </div>

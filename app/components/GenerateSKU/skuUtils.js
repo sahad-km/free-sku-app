@@ -68,6 +68,7 @@ export function generatePreviewSku({
   startNumber,
   numberPadding,
   incrementStep,
+  randomDigits = 4,
   skuComponents,
   separator,
   customSeparator,
@@ -94,14 +95,19 @@ export function generatePreviewSku({
     const currentNum = startNum + index * stepNum;
     numericBodyVal = currentNum.toString().padStart(padNum, "0");
   } else if (bodyNumberType === "disabled") {
-    numericBodyVal = body || "";
+    numericBodyVal = "";
   } else if (bodyNumberType === "productId") {
-    numericBodyVal = product.productId;
+    const rawId = (product.productId || product.id || "").toString();
+    numericBodyVal = rawId.replace(/\D/g, "");
   } else if (bodyNumberType === "variantId") {
-    numericBodyVal = product.variantId;
+    const rawId = (product.variantId || product.id || "").toString();
+    numericBodyVal = rawId.replace(/\D/g, "");
   } else if (bodyNumberType === "random") {
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    numericBodyVal = rand.toString();
+    const digits = Math.max(1, Math.min(10, parseInt(randomDigits, 10) || 4));
+    const min = Math.pow(10, digits - 1);
+    const max = Math.pow(10, digits) - 1;
+    const rand = Math.floor(min + Math.random() * (max - min + 1));
+    numericBodyVal = rand.toString().padStart(digits, "0");
   }
 
   // Build component values in the user's configured component order
@@ -110,7 +116,8 @@ export function generatePreviewSku({
       return prefix || comp.value || "";
     }
     if (comp.type === "body") {
-      return numericBodyVal || body || comp.value || "";
+      if (bodyNumberType === "disabled") return "";
+      return numericBodyVal;
     }
     if (comp.type === "suffix") {
       return suffix || comp.value || "";

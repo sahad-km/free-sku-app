@@ -7,7 +7,7 @@ export default function FeatureComparisonTable() {
     if (typeof val === "boolean") {
       return val ? (
         <div className="table-check-icon">
-          <CheckIcon size={14} color="#16A34A" />
+          <CheckIcon size={11} color="#16A34A" />
         </div>
       ) : (
         <div className="table-cross-icon">
@@ -29,6 +29,7 @@ export default function FeatureComparisonTable() {
           <thead>
             <tr>
               <th className="th-feature">FEATURES</th>
+              <th className="th-plan">FREE</th>
               <th className="th-plan">BASIC</th>
               <th className="th-plan th-pro-popular">
                 <div className="pro-header-badge-col">
@@ -36,18 +37,15 @@ export default function FeatureComparisonTable() {
                   <span className="pro-tag-sub">MOST POPULAR</span>
                 </div>
               </th>
-              <th className="th-plan">ADVANCED</th>
-              <th className="th-plan">ENTERPRISE</th>
             </tr>
           </thead>
           <tbody>
             {comparisonMatrix.map((row, idx) => (
               <tr key={idx}>
                 <td className="td-feature-name">{row.feature}</td>
+                <td className="td-plan-cell">{renderCellContent(row.free)}</td>
                 <td className="td-plan-cell">{renderCellContent(row.basic)}</td>
                 <td className="td-plan-cell td-pro-col">{renderCellContent(row.pro)}</td>
-                <td className="td-plan-cell">{renderCellContent(row.advanced)}</td>
-                <td className="td-plan-cell">{renderCellContent(row.enterprise)}</td>
               </tr>
             ))}
           </tbody>

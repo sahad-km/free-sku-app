@@ -1,9 +1,25 @@
 import mongoose from "mongoose";
+import dns from "dns";
 
-let isConnected = false;
+// Fix Node.js Windows DNS SRV lookup failures for mongodb+srv:// URIs
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
+} catch (e) {
+  // Ignore fallback warning if DNS servers cannot be overridden in restricted env
+}
+
+// Disable buffering so queries fail fast or return early if DB is offline instead of timing out after 10,000ms
+mongoose.set("bufferCommands", false);
+
+let connectionPromise = null;
 
 export async function connectMongoose() {
-  if (isConnected && mongoose.connection.readyState === 1) {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (connectionPromise && mongoose.connection.readyState === 2) {
+    await connectionPromise;
     return mongoose.connection;
   }
 
@@ -21,8 +37,8 @@ export async function connectMongoose() {
       serverSelectionTimeoutMS: 5000,
     };
 
-    await mongoose.connect(mongoUri, opts);
-    isConnected = true;
+    connectionPromise = mongoose.connect(mongoUri, opts);
+    await connectionPromise;
     console.log("[Mongoose] Successfully connected to MongoDB.");
     return mongoose.connection;
   } catch (error) {
@@ -30,6 +46,7 @@ export async function connectMongoose() {
       "[Mongoose Error] Could not connect to MongoDB:",
       error.message
     );
+    connectionPromise = null;
     return null;
   }
 }

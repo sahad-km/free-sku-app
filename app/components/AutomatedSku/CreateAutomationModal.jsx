@@ -10,7 +10,7 @@ export default function CreateAutomationModal({
 }) {
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Form State
+  // Form State - Details & Trigger
   const [ruleName, setRuleName] = useState(initialRule ? initialRule.name : "");
   const [ruleDescription, setRuleDescription] = useState(
     initialRule ? initialRule.description : ""
@@ -21,20 +21,74 @@ export default function CreateAutomationModal({
   const [selectedScope, setSelectedScope] = useState(
     initialRule ? initialRule.scope : "All products"
   );
+
+  // Form State - SKU Structure (Matching Generate SKU Page)
   const [prefix, setPrefix] = useState(
-    initialRule && initialRule.config ? initialRule.config.prefix : "AUTO"
-  );
-  const [bodyType, setBodyType] = useState(
-    initialRule && initialRule.config ? initialRule.config.bodyType : "Sequential"
+    initialRule && initialRule.config ? initialRule.config.prefix ?? "AUTO" : "AUTO"
   );
   const [suffix, setSuffix] = useState(
-    initialRule && initialRule.config ? initialRule.config.suffix : "RULE"
+    initialRule && initialRule.config ? initialRule.config.suffix ?? "RULE" : "RULE"
   );
   const [separator, setSeparator] = useState(
-    initialRule && initialRule.config ? initialRule.config.separator : "-"
+    initialRule && initialRule.config ? initialRule.config.separator ?? "-" : "-"
+  );
+  const [customSeparator, setCustomSeparator] = useState(
+    initialRule && initialRule.config ? initialRule.config.customSeparator ?? "" : ""
+  );
+
+  // Sequence Numbering & Body Options
+  const [bodyNumberType, setBodyNumberType] = useState(
+    initialRule && initialRule.config ? initialRule.config.bodyNumberType ?? "sequential" : "sequential"
+  );
+  const [startNumber, setStartNumber] = useState(
+    initialRule && initialRule.config ? initialRule.config.startNumber ?? 1 : 1
+  );
+  const [numberPadding, setNumberPadding] = useState(
+    initialRule && initialRule.config ? initialRule.config.numberPadding ?? 4 : 4
+  );
+  const [incrementStep, setIncrementStep] = useState(
+    initialRule && initialRule.config ? initialRule.config.incrementStep ?? 1 : 1
+  );
+
+  // Formatting & Overwrite Options
+  const [overwriteExisting, setOverwriteExisting] = useState(
+    initialRule && initialRule.config ? initialRule.config.overwriteExisting ?? true : true
+  );
+  const [individualVariantNumbering, setIndividualVariantNumbering] = useState(
+    initialRule && initialRule.config ? initialRule.config.individualVariantNumbering ?? true : true
+  );
+  const [removeSpaces, setRemoveSpaces] = useState(
+    initialRule && initialRule.config ? initialRule.config.removeSpaces ?? false : false
+  );
+  const [capitalizeAll, setCapitalizeAll] = useState(
+    initialRule && initialRule.config ? initialRule.config.capitalizeAll ?? true : true
   );
 
   if (!isOpen) return null;
+
+  // Dynamic Live SKU Format Calculation
+  const computePreviewSku = () => {
+    let sep = separator;
+    if (separator === "none") sep = "";
+    else if (separator === "custom") sep = customSeparator || "";
+
+    let bodyStr = String(startNumber).padStart(parseInt(numberPadding, 10) || 4, "0");
+    if (bodyNumberType === "random") bodyStr = "9A2F";
+    else if (bodyNumberType === "productId") bodyStr = "7890";
+    else if (bodyNumberType === "continue") bodyStr = String((parseInt(startNumber, 10) || 1) + 10).padStart(parseInt(numberPadding, 10) || 4, "0");
+
+    const parts = [];
+    if (prefix.trim()) parts.push(prefix.trim());
+    parts.push(bodyStr);
+    if (suffix.trim()) parts.push(suffix.trim());
+
+    let rawSku = parts.join(sep);
+    if (removeSpaces) rawSku = rawSku.replace(/\s+/g, "");
+    if (capitalizeAll) rawSku = rawSku.toUpperCase();
+    return rawSku;
+  };
+
+  const previewSku = computePreviewSku();
 
   const handleNext = () => {
     if (currentStep === 1 && !ruleName.trim()) {
@@ -44,7 +98,7 @@ export default function CreateAutomationModal({
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Final Save
+      // Final Save with complete configuration payload
       onSaveRule({
         id: initialRule ? initialRule.id : `auto-${Date.now()}`,
         name: ruleName.trim(),
@@ -63,9 +117,17 @@ export default function CreateAutomationModal({
         iconColor: "#7C3AED",
         config: {
           prefix,
-          bodyType,
           suffix,
           separator,
+          customSeparator,
+          bodyNumberType,
+          startNumber: parseInt(startNumber, 10) || 1,
+          numberPadding: parseInt(numberPadding, 10) || 4,
+          incrementStep: parseInt(incrementStep, 10) || 1,
+          overwriteExisting,
+          individualVariantNumbering,
+          removeSpaces,
+          capitalizeAll,
         },
       });
       onClose();
@@ -77,9 +139,6 @@ export default function CreateAutomationModal({
       setCurrentStep(currentStep - 1);
     }
   };
-
-  // Live SKU computed sample
-  const previewSku = `${prefix}${separator}0001${separator}${suffix}`;
 
   return (
     <div className="modal-backdrop">
@@ -190,51 +249,187 @@ export default function CreateAutomationModal({
             </div>
           )}
 
-          {/* Step 3: SKU Rule Configuration */}
+          {/* Step 3: SKU Rule Configuration (Full Generate SKU Page Options) */}
           {currentStep === 3 && (
             <div className="wizard-step-container">
               <h4 className="wizard-step-title">3. Configure SKU Rule Structure</h4>
+              <p className="wizard-step-desc">
+                Customize prefix, sequence numbering, separator, and formatting options for generated SKUs.
+              </p>
 
-              <div className="basic-structure-row mb-16">
-                <div className="field-group flex-1">
-                  <label className="field-label">Prefix</label>
-                  <input
-                    type="text"
-                    className="text-input"
-                    value={prefix}
-                    onChange={(e) => setPrefix(e.target.value)}
-                    placeholder="e.g. AUTO"
-                  />
+              {/* 1. Basic Structure: Prefix, Suffix, Separator */}
+              <div className="form-section-card mb-16">
+                <h5 className="form-section-title">Prefix, Suffix & Separator</h5>
+                <div className="basic-structure-row">
+                  <div className="field-group flex-1">
+                    <label className="field-label">Prefix</label>
+                    <input
+                      type="text"
+                      className="text-input"
+                      value={prefix}
+                      onChange={(e) => setPrefix(e.target.value)}
+                      placeholder="e.g. AUTO"
+                    />
+                  </div>
+
+                  <div className="field-group flex-1">
+                    <label className="field-label">Suffix</label>
+                    <input
+                      type="text"
+                      className="text-input"
+                      value={suffix}
+                      onChange={(e) => setSuffix(e.target.value)}
+                      placeholder="e.g. RULE"
+                    />
+                  </div>
+
+                  <div className="field-group flex-1">
+                    <label className="field-label">Separator</label>
+                    <select
+                      className="select-input"
+                      value={separator}
+                      onChange={(e) => setSeparator(e.target.value)}
+                    >
+                      <option value="-">Dash (-)</option>
+                      <option value="_">Underscore (_)</option>
+                      <option value="|">Pipe (|)</option>
+                      <option value=".">Dot (.)</option>
+                      <option value="none">None</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                  </div>
                 </div>
 
-                <span className="field-separator">-</span>
+                {separator === "custom" && (
+                  <div className="field-group mt-12">
+                    <label className="field-label">Custom Separator</label>
+                    <input
+                      type="text"
+                      className="text-input"
+                      value={customSeparator}
+                      onChange={(e) => setCustomSeparator(e.target.value)}
+                      placeholder="e.g. /"
+                    />
+                  </div>
+                )}
+              </div>
 
-                <div className="field-group flex-1">
-                  <label className="field-label">Suffix</label>
-                  <input
-                    type="text"
-                    className="text-input"
-                    value={suffix}
-                    onChange={(e) => setSuffix(e.target.value)}
-                    placeholder="e.g. RULE"
-                  />
-                </div>
-
-                <div className="field-group flex-1">
-                  <label className="field-label">Separator</label>
+              {/* 2. Body / Sequence Number Settings */}
+              <div className="form-section-card mb-16">
+                <h5 className="form-section-title">Body / Sequence Numbering</h5>
+                
+                <div className="field-group mb-14">
+                  <label className="field-label">Number Generation Mode</label>
                   <select
                     className="select-input"
-                    value={separator}
-                    onChange={(e) => setSeparator(e.target.value)}
+                    value={bodyNumberType}
+                    onChange={(e) => setBodyNumberType(e.target.value)}
                   >
-                    <option value="-">Dash (-)</option>
-                    <option value="_">Underscore (_)</option>
-                    <option value="|">Pipe (|)</option>
-                    <option value=".">Dot (.)</option>
+                    <option value="sequential">Sequential Numbering (0001, 0002...)</option>
+                    <option value="random">Random Alphanumeric Code (9A2F)</option>
+                    <option value="productId">Product ID Based</option>
+                    <option value="continue">Continue Previous Store Sequence</option>
                   </select>
+                </div>
+
+                {bodyNumberType !== "random" && bodyNumberType !== "productId" && (
+                  <div className="number-settings-row">
+                    <div className="field-group flex-1">
+                      <label className="field-label">Start Number</label>
+                      <input
+                        type="number"
+                        className="text-input"
+                        min="1"
+                        value={startNumber}
+                        onChange={(e) => setStartNumber(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="field-group flex-1">
+                      <label className="field-label">Digit Padding</label>
+                      <select
+                        className="select-input"
+                        value={numberPadding}
+                        onChange={(e) => setNumberPadding(e.target.value)}
+                      >
+                        <option value="2">2 Digits (01)</option>
+                        <option value="3">3 Digits (001)</option>
+                        <option value="4">4 Digits (0001)</option>
+                        <option value="5">5 Digits (00001)</option>
+                        <option value="6">6 Digits (000001)</option>
+                      </select>
+                    </div>
+
+                    <div className="field-group flex-1">
+                      <label className="field-label">Increment Step</label>
+                      <input
+                        type="number"
+                        className="text-input"
+                        min="1"
+                        value={incrementStep}
+                        onChange={(e) => setIncrementStep(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Formatting & Processing Toggles */}
+              <div className="form-section-card mb-16">
+                <h5 className="form-section-title">Processing & Formatting Options</h5>
+                
+                <div className="toggles-grid">
+                  <label className="toggle-option-card">
+                    <input
+                      type="checkbox"
+                      checked={overwriteExisting}
+                      onChange={(e) => setOverwriteExisting(e.target.checked)}
+                    />
+                    <div>
+                      <span className="toggle-option-title">Overwrite Existing SKUs</span>
+                      <p className="toggle-option-desc">Replace SKUs if product already has an assigned SKU</p>
+                    </div>
+                  </label>
+
+                  <label className="toggle-option-card">
+                    <input
+                      type="checkbox"
+                      checked={individualVariantNumbering}
+                      onChange={(e) => setIndividualVariantNumbering(e.target.checked)}
+                    />
+                    <div>
+                      <span className="toggle-option-title">Individual Variant Sequence</span>
+                      <p className="toggle-option-desc">Increment sequence number for each variant</p>
+                    </div>
+                  </label>
+
+                  <label className="toggle-option-card">
+                    <input
+                      type="checkbox"
+                      checked={removeSpaces}
+                      onChange={(e) => setRemoveSpaces(e.target.checked)}
+                    />
+                    <div>
+                      <span className="toggle-option-title">Remove Spaces</span>
+                      <p className="toggle-option-desc">Strip whitespace from final SKU string</p>
+                    </div>
+                  </label>
+
+                  <label className="toggle-option-card">
+                    <input
+                      type="checkbox"
+                      checked={capitalizeAll}
+                      onChange={(e) => setCapitalizeAll(e.target.checked)}
+                    />
+                    <div>
+                      <span className="toggle-option-title">Capitalize All (UPPERCASE)</span>
+                      <p className="toggle-option-desc">Convert all characters in final SKU to uppercase</p>
+                    </div>
+                  </label>
                 </div>
               </div>
 
+              {/* Live Preview Result Box */}
               <div className="live-preview-box">
                 <span className="preview-box-label">Live SKU Format Preview:</span>
                 <span className="sku-pill-tag purple-sku">{previewSku}</span>
@@ -259,6 +454,20 @@ export default function CreateAutomationModal({
                 <div className="review-row">
                   <span className="review-label">Scope:</span>
                   <span className="review-val">{selectedScope}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Numbering Mode:</span>
+                  <span className="review-val">
+                    {bodyNumberType === "sequential"
+                      ? `Sequential (Start: ${startNumber}, Padding: ${numberPadding} digits)`
+                      : bodyNumberType === "random"
+                      ? "Random Alphanumeric"
+                      : "Product ID Based"}
+                  </span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Overwrite Existing:</span>
+                  <span className="review-val">{overwriteExisting ? "Yes" : "No (Skip existing)"}</span>
                 </div>
                 <div className="review-row">
                   <span className="review-label">Generated SKU Format:</span>

@@ -120,11 +120,11 @@ export function ViewGeneratedSkusModal({ record, onClose }) {
   const [skuSearch, setSkuSearch] = useState("");
   if (!record) return null;
 
-  const skusList = sampleGeneratedSkus[record.id] || [
-    { product: "The Minimal Snowboard", variant: "Black / 152", sku: `${record.rule.substring(0, 4).toUpperCase()}-0001`, status: "Generated" },
-    { product: "The Minimal Snowboard", variant: "Black / 156", sku: `${record.rule.substring(0, 4).toUpperCase()}-0002`, status: "Generated" },
-    { product: "The Videographer Snowboard", variant: "Purple / 154", sku: `${record.rule.substring(0, 4).toUpperCase()}-0003`, status: "Generated" },
-  ];
+  const skusList =
+    record.generatedSkus ||
+    record.auditLogs ||
+    sampleGeneratedSkus[record.id] ||
+    [];
 
   const filteredSkus = skusList.filter(
     (item) =>

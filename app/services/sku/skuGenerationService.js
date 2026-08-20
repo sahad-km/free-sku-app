@@ -8,6 +8,8 @@ import { reserveShopCredits, refundShopCredits } from "./skuCreditService";
 import { validateSelectionPayload, validateSkuConfigPayload } from "./skuValidationService";
 import { validateGenerationEntitlements } from "./skuEntitlementService";
 import { createGenerationRunRecord, updateGenerationRunProgress } from "./generationJobService";
+import { addSkuGenerationJob } from "../queue/skuQueueService";
+import { executeShopifyBulkOperationRun } from "./shopifyBulkOpsService";
 
 /**
  * High-Scale Controlled Concurrency Helper
@@ -134,6 +136,7 @@ export async function executeSkuGenerationRun({
   skuConfiguration = {},
   ruleName = "Manual SKU Run",
   idempotencyKey = null,
+  existingRunId = null,
 }) {
   const shopDomain = session?.shop;
   if (!shopDomain) {
@@ -142,64 +145,80 @@ export async function executeSkuGenerationRun({
 
   await connectMongoose();
 
-  // 1. Validate Selection & Config payloads
-  const selectionVal = validateSelectionPayload(selection);
-  if (!selectionVal.valid) {
-    throw new Error(`Invalid Selection: ${selectionVal.error}`);
+  let runDoc = null;
+  let totalVariants = 0;
+  let totalProducts = 0;
+  let creditsReserved = 0;
+
+  if (existingRunId) {
+    // Invoked by Worker Node for an existing queued run
+    runDoc = await SkuGenerationRun.findById(existingRunId);
+    if (!runDoc) throw new Error(`Generation run ${existingRunId} not found`);
+    totalVariants = runDoc.totalVariants;
+    totalProducts = runDoc.totalProducts;
+    creditsReserved = runDoc.creditsReserved;
+  } else {
+    // 1. Validate Selection & Config payloads
+    const selectionVal = validateSelectionPayload(selection);
+    if (!selectionVal.valid) {
+      throw new Error(`Invalid Selection: ${selectionVal.error}`);
+    }
+
+    const configVal = validateSkuConfigPayload(skuConfiguration);
+    if (!configVal.valid) {
+      throw new Error(`Invalid SKU Config: ${configVal.error}`);
+    }
+
+    // 2. Resolve catalog counts
+    const scopeCounts = await calculateSelectionScopeCounts({ admin, selection });
+    totalVariants = scopeCounts.totalVariants || 1;
+    totalProducts = scopeCounts.totalProducts || 1;
+
+    // 3. Entitlement & plan limit validation
+    const entitlementCheck = await validateGenerationEntitlements({ shopDomain, variantCount: totalVariants });
+    if (!entitlementCheck.allowed) {
+      return {
+        success: false,
+        errorCode: entitlementCheck.reason,
+        message: entitlementCheck.message,
+      };
+    }
+
+    // 4. Reserve credits atomically
+    const creditRes = await reserveShopCredits({ shopDomain, requiredCredits: totalVariants });
+    if (!creditRes.success) {
+      return {
+        success: false,
+        errorCode: "INSUFFICIENT_CREDITS",
+        message: `Insufficient credits. Required: ${creditRes.requiredCredits}, Available: ${creditRes.availableCredits}`,
+        requiredCredits: creditRes.requiredCredits,
+        availableCredits: creditRes.availableCredits,
+      };
+    }
+
+    creditsReserved = creditRes.reservedCredits;
+
+    // 5. Create generation run record
+    runDoc = await createGenerationRunRecord({
+      shopDomain,
+      ruleName,
+      selection,
+      skuConfiguration,
+      totalProducts,
+      totalVariants,
+      creditsReserved,
+      idempotencyKey,
+    });
   }
 
-  const configVal = validateSkuConfigPayload(skuConfiguration);
-  if (!configVal.valid) {
-    throw new Error(`Invalid SKU Config: ${configVal.error}`);
-  }
-
-  // 2. Resolve catalog counts
-  const scopeCounts = await calculateSelectionScopeCounts({ admin, selection });
-  const totalVariants = scopeCounts.totalVariants || 1;
-  const totalProducts = scopeCounts.totalProducts || 1;
-
-  // 3. Entitlement & plan limit validation
-  const entitlementCheck = await validateGenerationEntitlements({ shopDomain, variantCount: totalVariants });
-  if (!entitlementCheck.allowed) {
-    return {
-      success: false,
-      errorCode: entitlementCheck.reason,
-      message: entitlementCheck.message,
-    };
-  }
-
-  // 4. Reserve credits atomically
-  const creditRes = await reserveShopCredits({ shopDomain, requiredCredits: totalVariants });
-  if (!creditRes.success) {
-    return {
-      success: false,
-      errorCode: "INSUFFICIENT_CREDITS",
-      message: `Insufficient credits. Required: ${creditRes.requiredCredits}, Available: ${creditRes.availableCredits}`,
-      requiredCredits: creditRes.requiredCredits,
-      availableCredits: creditRes.availableCredits,
-    };
-  }
-
-  const creditsReserved = creditRes.reservedCredits;
-
-  // 5. Create generation run record
-  const runDoc = await createGenerationRunRecord({
-    shopDomain,
-    ruleName,
-    selection,
-    skuConfiguration,
-    totalProducts,
-    totalVariants,
-    creditsReserved,
-    idempotencyKey,
-  });
+  const runId = runDoc._id.toString();
 
   // 6. Sequential numbering start sequence reservation
   const isSequential = skuConfiguration.bodyNumberType === "sequential" || skuConfiguration.bodyNumberType === "continue";
   let startSeqNum = skuConfiguration.startNumber || 1;
   const incrementStep = skuConfiguration.incrementStep || 1;
 
-  if (isSequential) {
+  if (isSequential && !existingRunId) {
     startSeqNum = await getNextSequenceNumber({
       shopDomain,
       counterKey: ruleName || "default",
@@ -209,9 +228,40 @@ export async function executeSkuGenerationRun({
     });
   }
 
-  // 7. Async / Detached Streamed Execution for Large Catalogs
-  const runId = runDoc._id.toString();
+  // 7. Enqueue to BullMQ if Redis Queue is available and not already inside Worker
+  if (!existingRunId && totalVariants > 50) {
+    const queueRes = await addSkuGenerationJob({
+      runId,
+      shopDomain,
+      selection,
+      skuConfiguration,
+      ruleName,
+      idempotencyKey,
+    });
 
+    if (queueRes.isQueue) {
+      await updateGenerationRunProgress({ runId, status: "QUEUED" });
+      return {
+        success: true,
+        runId,
+        status: "QUEUED",
+        isAsync: true,
+        isQueued: true,
+        jobId: queueRes.jobId,
+        summary: {
+          totalProducts,
+          totalVariants,
+          processedVariants: 0,
+          generated: 0,
+          skipped: 0,
+          failed: 0,
+          creditsUsed: creditsReserved,
+        },
+      };
+    }
+  }
+
+  // 8. Streamed Batch Execution Engine for GraphQL mutations
   const runStreamedExecution = async () => {
     let hasNextPage = true;
     let cursor = null;
@@ -221,13 +271,12 @@ export async function executeSkuGenerationRun({
     let overallSkipped = 0;
     let sequenceIndex = 0;
 
-    // Process catalog page-by-page (100 items per chunk) to keep memory flat
     while (hasNextPage) {
       const pageResult = await resolveSkuSelection({
         admin,
         selection,
         cursor,
-        limit: 50, // Streamed chunk size
+        limit: 50,
       });
 
       const { products, pageInfo } = pageResult;
@@ -287,11 +336,10 @@ export async function executeSkuGenerationRun({
         });
       });
 
-      // Controlled concurrency: max 5 parallel product mutations with 50ms rate-limit throttle
       const groupsList = Object.values(productUpdateGroups);
       if (groupsList.length > 0) {
         const mutationResults = await mapConcurrent(groupsList, 5, async (group) => {
-          await sleep(50); // Leaky bucket protection
+          await sleep(50);
           return processProductGroupMutation({ admin, group, shopDomain, runId });
         });
 
@@ -303,14 +351,12 @@ export async function executeSkuGenerationRun({
         });
       }
 
-      // Persist page audit rows to MongoDB
       if (pageAuditRows.length > 0) {
         await GeneratedSku.insertMany(pageAuditRows).catch((e) =>
           console.warn("[Generation Engine] Audit insert warning:", e.message)
         );
       }
 
-      // Update real-time progress doc in MongoDB for live polling UI
       await updateGenerationRunProgress({
         runId,
         processed: overallProcessed,
@@ -321,7 +367,6 @@ export async function executeSkuGenerationRun({
       });
     }
 
-    // Reconcile credits & status upon completion
     const creditsConsumed = overallSuccessful;
     const unusedCredits = creditsReserved - creditsConsumed;
     if (unusedCredits > 0) {
@@ -346,7 +391,8 @@ export async function executeSkuGenerationRun({
     });
   };
 
-  // For small batches (<= 50 variants), run inline synchronously
+  // 9. Execute based on Variant Count & Routing rules:
+  // - Small batch (<= 50): Inline synchronous execution
   if (totalVariants <= 50) {
     await runStreamedExecution();
     const finalRun = await SkuGenerationRun.findById(runId);
@@ -366,8 +412,34 @@ export async function executeSkuGenerationRun({
     };
   }
 
-  // For large catalog runs (> 50 variants up to 20,000+), launch background detached execution!
-  runStreamedExecution().catch((err) => {
+  // - Massive batch (> 1,000 variants): Shopify Bulk Operations API Engine!
+  const targetExecution = async () => {
+    if (totalVariants > 1000) {
+      console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Shopify Bulk Operations API Engine`);
+      await executeShopifyBulkOperationRun({
+        admin,
+        session,
+        selection,
+        skuConfiguration,
+        ruleName,
+        runId,
+        totalVariants,
+        startSeqNum,
+      });
+    } else {
+      console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Streamed GraphQL Concurrency Engine`);
+      await runStreamedExecution();
+    }
+  };
+
+  if (existingRunId) {
+    // Inside Worker thread: await execution synchronously for worker job promise resolution
+    await targetExecution();
+    return { success: true, runId, status: "Completed" };
+  }
+
+  // Fallback in-process async execution when BullMQ/Redis is not configured
+  targetExecution().catch((err) => {
     console.error("[Async Generation Engine Error]:", err.message);
     updateGenerationRunProgress({
       runId,

@@ -183,7 +183,18 @@ export function RuleSummaryModal({ isOpen, onClose, config = {} }) {
         <div className="modal-body">
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", color: "#374151" }}>
             <div><strong>Prefix:</strong> {config.prefix || "—"}</div>
-            <div><strong>Body Numbering:</strong> {config.bodyNumberType || "sequential"} (Start: {config.startNumber || 1}, Padding: {config.numberPadding || 4})</div>
+            <div>
+              <strong>Body Numbering:</strong> {config.bodyNumberType || "sequential"}{" "}
+              {config.bodyNumberType === "random"
+                ? `(${config.randomDigits || 4} digits)`
+                : config.bodyNumberType === "disabled"
+                ? "(Disabled)"
+                : config.bodyNumberType === "productId"
+                ? "(Product ID numeric)"
+                : config.bodyNumberType === "variantId"
+                ? "(Variant ID numeric)"
+                : `(Start: ${config.startNumber || 1}, Padding: ${config.numberPadding || 4})`}
+            </div>
             <div><strong>Suffix:</strong> {config.suffix || "—"}</div>
             <div><strong>Separator:</strong> {config.separator || "none"}</div>
             <div>

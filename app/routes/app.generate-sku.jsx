@@ -4,6 +4,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { checkShopCredits } from "../services/sku/skuCreditService";
 import { calculateSelectionScopeCounts, resolveSkuSelection } from "../services/sku/skuSelectionService";
+import { getCurrentSequenceNumber } from "../services/sku/skuCounterService";
 import GenerateSkuHeader from "../components/GenerateSKU/GenerateSkuHeader";
 import StepIndicator from "../components/GenerateSKU/StepIndicator";
 import BasicStructureSection from "../components/GenerateSKU/BasicStructureSection";
@@ -38,6 +39,13 @@ export const loader = async ({ request }) => {
     console.warn("Loader credit check warning:", err.message);
   }
 
+  let lastSequenceNumber = 1;
+  try {
+    lastSequenceNumber = await getCurrentSequenceNumber({ shopDomain });
+  } catch (err) {
+    console.warn("Loader lastSequenceNumber warning:", err.message);
+  }
+
   let scopeCounts = {
     totalProducts: 78,
     totalVariants: 93,
@@ -67,6 +75,7 @@ export const loader = async ({ request }) => {
   return {
     shopDomain,
     creditsAvailable,
+    lastSequenceNumber,
     initialScopeCounts: scopeCounts,
     initialPreviewProducts: previewProducts,
   };
@@ -78,6 +87,7 @@ export default function GenerateSkuPage() {
 
   const [activeStep, setActiveStep] = useState(1);
   const [creditsAvailable] = useState(loaderData.creditsAvailable || 100);
+  const [lastSequenceNumber] = useState(loaderData.lastSequenceNumber || 1);
   const [selection, setSelection] = useState({ type: "ALL_PRODUCTS" });
   const [scopeCounts, setScopeCounts] = useState(
     loaderData.initialScopeCounts || {
@@ -93,13 +103,14 @@ export default function GenerateSkuPage() {
 
   // ─── Form Configuration State (Step 1) ──────────────────────────────────
   const [prefix, setPrefix] = useState("STRT");
-  const [body, setBody] = useState("0");
+  const [body, setBody] = useState("");
   const [suffix, setSuffix] = useState("END");
 
   const [bodyNumberType, setBodyNumberType] = useState("sequential");
   const [startNumber, setStartNumber] = useState(1);
   const [numberPadding, setNumberPadding] = useState(4);
   const [incrementStep, setIncrementStep] = useState(1);
+  const [randomDigits, setRandomDigits] = useState(4);
 
   const [overwriteExisting, setOverwriteExisting] = useState(true);
   const [individualVariantNumbering, setIndividualVariantNumbering] = useState(true);
@@ -182,9 +193,10 @@ export default function GenerateSkuPage() {
       body,
       suffix,
       bodyNumberType,
-      startNumber: parseInt(startNumber, 10) || 1,
+      startNumber: bodyNumberType === "continue" ? (parseInt(lastSequenceNumber, 10) || 1) : (parseInt(startNumber, 10) || 1),
       numberPadding: parseInt(numberPadding, 10) || 4,
       incrementStep: parseInt(incrementStep, 10) || 1,
+      randomDigits: parseInt(randomDigits, 10) || 4,
       skuComponents,
       separator,
       customSeparator,
@@ -230,9 +242,11 @@ export default function GenerateSkuPage() {
     body,
     suffix,
     bodyNumberType,
-    startNumber,
+    startNumber: bodyNumberType === "continue" ? (parseInt(lastSequenceNumber, 10) || 1) : (parseInt(startNumber, 10) || 1),
     numberPadding,
     incrementStep,
+    randomDigits,
+    lastSequenceNumber,
     skuComponents,
     separator,
     customSeparator,
@@ -284,6 +298,9 @@ export default function GenerateSkuPage() {
                 setNumberPadding={setNumberPadding}
                 incrementStep={incrementStep}
                 setIncrementStep={setIncrementStep}
+                randomDigits={randomDigits}
+                setRandomDigits={setRandomDigits}
+                lastSequenceNumber={lastSequenceNumber}
                 prefix={prefix}
                 suffix={suffix}
                 separator={separator}
@@ -340,9 +357,10 @@ export default function GenerateSkuPage() {
                 body={body}
                 suffix={suffix}
                 bodyNumberType={bodyNumberType}
-                startNumber={startNumber}
+                startNumber={bodyNumberType === "continue" ? lastSequenceNumber : startNumber}
                 numberPadding={numberPadding}
                 incrementStep={incrementStep}
+                randomDigits={randomDigits}
                 skuComponents={skuComponents}
                 separator={separator}
                 customSeparator={customSeparator}

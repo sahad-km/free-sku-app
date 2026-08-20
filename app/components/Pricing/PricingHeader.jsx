@@ -28,14 +28,14 @@ export default function PricingHeader({ billingInterval, setBillingInterval }) {
             onClick={() => setBillingInterval("annual")}
             type="button"
           >
-            Annual (Save 20%)
+            Annual (Save $8/yr)
           </button>
         </div>
 
         <div className="annual-save-hint">
           <CurvedArrowIcon size={24} color="#5B3DF5" />
           <span className="save-hint-text">
-            Save up to 20% with annual billing
+            Save on yearly billing
           </span>
         </div>
       </div>
