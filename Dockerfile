@@ -5,9 +5,11 @@ EXPOSE 3000
 
 WORKDIR /app
 
+RUN npm config set legacy-peer-deps true
+
 COPY package.json package-lock.json* ./
 
-RUN npm install --legacy-peer-deps
+RUN npm install
 
 COPY . .
 
