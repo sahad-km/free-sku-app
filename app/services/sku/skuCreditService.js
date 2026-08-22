@@ -78,9 +78,15 @@ export async function refundShopCredits({ shopDomain, refundCount = 1 }) {
   if (refundCount <= 0) return;
   await connectMongoose();
 
+  const shopDoc = await Shop.findOne({ shopDomain });
+  if (!shopDoc) return;
+
+  const currentUsed = Math.max(0, shopDoc.creditsUsed || 0);
+  const newUsed = Math.max(0, currentUsed - refundCount);
+
   await Shop.findOneAndUpdate(
     { shopDomain },
-    { $inc: { creditsUsed: -refundCount } },
+    { $set: { creditsUsed: newUsed } },
     { new: true }
   );
 }

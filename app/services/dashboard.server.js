@@ -52,7 +52,7 @@ export async function getDashboardData({ admin, session }) {
 
       if (shopDoc) {
         shopName = shopDoc.shopName || shopName;
-        creditsUsed = shopDoc.creditsUsed ?? 0;
+        creditsUsed = Math.max(0, shopDoc.creditsUsed ?? 0);
         creditsAllocated = shopDoc.creditsAllocated ?? 100;
       }
     } catch (err) {
@@ -126,13 +126,21 @@ export async function getDashboardData({ admin, session }) {
   // 4. Fetch real SKU generation runs and aggregate from MongoDB for this shop
   let recentActivityData = [];
   
-  // Calculate real current last 7 days (e.g. Aug 9 to Aug 15)
-  const daysMap = {};
+  // Prepare date maps for Last 7 days and Last 30 days
+  const daysMap7 = {};
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    daysMap[label] = 0;
+    daysMap7[label] = 0;
+  }
+
+  const daysMap30 = {};
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    daysMap30[label] = 0;
   }
 
   if (dbActive) {
@@ -167,15 +175,15 @@ export async function getDashboardData({ admin, session }) {
         }));
       }
 
-      // Trend Chart from DB for this shopDomain
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-      sevenDaysAgo.setHours(0, 0, 0, 0);
+      // Trend Chart from DB for last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
 
       const trendRuns = await SkuGenerationRun.find({
         shopDomain,
         status: "Completed",
-        createdAt: { $gte: sevenDaysAgo },
+        createdAt: { $gte: thirtyDaysAgo },
       });
 
       trendRuns.forEach((run) => {
@@ -183,8 +191,11 @@ export async function getDashboardData({ admin, session }) {
           month: "short",
           day: "numeric",
         });
-        if (daysMap[label] !== undefined) {
-          daysMap[label] += run.skusGenerated;
+        if (daysMap7[label] !== undefined) {
+          daysMap7[label] += run.skusGenerated;
+        }
+        if (daysMap30[label] !== undefined) {
+          daysMap30[label] += run.skusGenerated;
         }
       });
     } catch (err) {
@@ -192,9 +203,14 @@ export async function getDashboardData({ admin, session }) {
     }
   }
 
-  const chartData = Object.keys(daysMap).map((date) => ({
+  const chartData7 = Object.keys(daysMap7).map((date) => ({
     date,
-    skus: daysMap[date],
+    skus: daysMap7[date],
+  }));
+
+  const chartData30 = Object.keys(daysMap30).map((date) => ({
+    date,
+    skus: daysMap30[date],
   }));
 
   // 5. Build KPI Cards Data
@@ -240,7 +256,9 @@ export async function getDashboardData({ admin, session }) {
       plan: shopDoc?.plan || "Free",
     },
     kpiData,
-    chartData,
+    chartData: chartData7,
+    chartData7,
+    chartData30,
     recentActivityData,
   };
 }

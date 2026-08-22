@@ -28,6 +28,9 @@ if (redisUrl) {
     redisConnection.on("connect", () => {
       console.log("[SkuQueue] Successfully connected to Redis.");
       isRedisAvailable = true;
+      import("./skuWorkerService.server")
+        .then(({ initSkuWorker }) => initSkuWorker())
+        .catch((e) => console.warn("[SkuQueue] Worker boot warning:", e.message));
     });
 
     redisConnection.on("error", (err) => {
@@ -59,6 +62,10 @@ if (redisUrl) {
  */
 export async function addSkuGenerationJob(jobData) {
   const { runId, shopDomain, selection, skuConfiguration, ruleName, idempotencyKey } = jobData;
+
+  import("./skuWorkerService.server")
+    .then(({ initSkuWorker }) => initSkuWorker())
+    .catch(() => {});
 
   if (isRedisAvailable && skuQueue) {
     try {

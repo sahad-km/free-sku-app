@@ -11,7 +11,7 @@ import { getNextSequenceNumber } from "./skuCounterService";
  */
 
 const BULK_VARIANT_MUTATION = `
-  mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+  mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
     productVariantsBulkUpdate(productId: $productId, variants: $variants) {
       product { id }
       productVariants { id sku }
@@ -255,7 +255,9 @@ export async function executeShopifyBulkOperationRun({
 
         variantsToUpdate.push({
           id: variant.id,
-          sku: genResult.sku,
+          inventoryItem: {
+            sku: genResult.sku,
+          },
         });
 
         auditRows.push({

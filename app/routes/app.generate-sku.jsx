@@ -333,12 +333,13 @@ export default function GenerateSkuPage() {
       });
 
       const resJson = await response.json();
-      setIsGenerating(false);
 
       if (resJson.success && resJson.runId) {
         setActiveRunId(resJson.runId);
         setIsProgressModalOpen(true);
+        setTimeout(() => setIsGenerating(false), 600);
       } else {
+        setIsGenerating(false);
         showToast(resJson.message || resJson.error || "Failed to start generation run", "error");
       }
     } catch (err) {
@@ -557,6 +558,7 @@ export default function GenerateSkuPage() {
       <GenerationProgressModal
         isOpen={isProgressModalOpen}
         runId={activeRunId}
+        onClose={() => setIsProgressModalOpen(false)}
         onComplete={() => setIsProgressModalOpen(false)}
       />
     </div>

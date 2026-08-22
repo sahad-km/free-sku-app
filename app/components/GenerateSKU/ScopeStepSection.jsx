@@ -715,21 +715,9 @@ export default function ScopeStepSection({
         </button>
 
         <button
+          className="btn-next-step"
           type="button"
           onClick={onNext}
-          style={{
-            backgroundColor: "#5B3DF5",
-            color: "#FFFFFF",
-            padding: "10px 24px",
-            borderRadius: "8px",
-            fontSize: "14px",
-            fontWeight: 500,
-            border: "none",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            cursor: "pointer",
-          }}
         >
           <span>Next: Preview & Confirm</span>
           <ArrowRightIcon size={14} color="#FFFFFF" />

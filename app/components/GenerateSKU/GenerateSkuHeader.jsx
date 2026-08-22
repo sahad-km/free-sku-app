@@ -7,6 +7,7 @@ export default function GenerateSkuHeader({
   onNextStep,
   onBack,
   isSaving,
+  isGenerating = false,
 }) {
   return (
     <div className="generate-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -33,18 +34,6 @@ export default function GenerateSkuHeader({
               className="btn-next-step"
               onClick={onNextStep}
               type="button"
-              style={{
-                backgroundColor: "#5B3DF5",
-                color: "#FFFFFF",
-                padding: "8px 20px",
-                borderRadius: "8px",
-                fontWeight: 500,
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: "pointer",
-              }}
             >
               <span>Next: Select Scope</span>
               <ArrowRightIcon size={14} color="#FFFFFF" />
@@ -68,20 +57,9 @@ export default function GenerateSkuHeader({
               ← Back
             </button>
             <button
+              className="btn-next-step"
               type="button"
               onClick={onNextStep}
-              style={{
-                backgroundColor: "#5B3DF5",
-                color: "#FFFFFF",
-                padding: "8px 20px",
-                borderRadius: "8px",
-                fontWeight: 500,
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: "pointer",
-              }}
             >
               <span>Next: Preview & Confirm</span>
               <ArrowRightIcon size={14} color="#FFFFFF" />
@@ -92,6 +70,7 @@ export default function GenerateSkuHeader({
             <button
               type="button"
               onClick={onBack}
+              disabled={isGenerating}
               style={{
                 backgroundColor: "#FFFFFF",
                 border: "1px solid #E5E7EB",
@@ -99,29 +78,29 @@ export default function GenerateSkuHeader({
                 padding: "8px 16px",
                 borderRadius: "8px",
                 fontWeight: 500,
-                cursor: "pointer",
+                cursor: isGenerating ? "not-allowed" : "pointer",
+                opacity: isGenerating ? 0.7 : 1,
               }}
             >
               ← Back
             </button>
             <button
+              className="btn-next-step"
               type="button"
               onClick={onNextStep}
-              style={{
-                backgroundColor: "#5B3DF5",
-                color: "#FFFFFF",
-                padding: "8px 20px",
-                borderRadius: "8px",
-                fontWeight: 500,
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: "pointer",
-              }}
+              disabled={isGenerating}
             >
-              <span>Next: Generate SKUs</span>
-              <ArrowRightIcon size={14} color="#FFFFFF" />
+              {isGenerating ? (
+                <>
+                  <span className="btn-spinner" />
+                  <span>Generating SKUs...</span>
+                </>
+              ) : (
+                <>
+                  <span>Next: Generate SKUs</span>
+                  <ArrowRightIcon size={14} color="#FFFFFF" />
+                </>
+              )}
             </button>
           </>
         )}

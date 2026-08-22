@@ -3,8 +3,16 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 
+import { ensureShopDetailsSynced } from "../services/shop/shopSyncService.server";
+
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
+
+  if (admin && session?.shop) {
+    ensureShopDetailsSynced({ admin, shopDomain: session.shop }).catch((err) =>
+      console.warn("[AppLoader] Shop sync error:", err.message)
+    );
+  }
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };

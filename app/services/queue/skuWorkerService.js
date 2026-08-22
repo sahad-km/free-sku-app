@@ -46,7 +46,7 @@ export async function processSkuGenerationJob(job) {
 export function initSkuWorker() {
   const redisConnection = getRedisConnection();
 
-  if (!isQueueActive() || !redisConnection) {
+  if (!redisConnection) {
     console.log("[SkuWorker] Redis queue not active. Worker listener omitted.");
     return null;
   }

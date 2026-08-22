@@ -375,11 +375,11 @@ export async function evaluateAutomatedSkuForProduct({
     });
 
     if (variantsToUpdate.length > 0) {
-      const bulkInput = variantsToUpdate.map((v) => ({ id: v.id, sku: v.sku }));
+      const bulkInput = variantsToUpdate.map((v) => ({ id: v.id, inventoryItem: { sku: v.sku } }));
 
       try {
         const updateRes = await admin.graphql(`
-          mutation automatedBulkUpdateVariants($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+          mutation automatedBulkUpdateVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
             productVariantsBulkUpdate(productId: $productId, variants: $variants) {
               product { id }
               productVariants { id sku }

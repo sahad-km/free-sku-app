@@ -59,22 +59,22 @@ export async function updateGenerationRunProgress({
   await connectMongoose();
 
   const updateFields = {
-    $inc: {
+    $set: {
       processedVariants: processed,
       successfulVariants: successful,
       failedVariants: failed,
       skippedVariants: skipped,
       skusGenerated: successful,
+      status,
     },
-    status,
   };
 
   if (errorSummary) {
-    updateFields.errorSummary = errorSummary;
+    updateFields.$set.errorSummary = errorSummary;
   }
 
   if (status === "Completed" || status === "COMPLETED_WITH_ERRORS" || status === "Failed") {
-    updateFields.completedAt = new Date();
+    updateFields.$set.completedAt = new Date();
   }
 
   const updated = await SkuGenerationRun.findByIdAndUpdate(runId, updateFields, { new: true });

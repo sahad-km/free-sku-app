@@ -28,6 +28,9 @@ if (redisUrl) {
     redisConnection.on("connect", () => {
       console.log("[SkuQueue] Successfully connected to Redis.");
       isRedisAvailable = true;
+      import("./skuWorkerService")
+        .then(({ initSkuWorker }) => initSkuWorker())
+        .catch(() => {});
     });
 
     redisConnection.on("error", (err) => {

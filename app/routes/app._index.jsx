@@ -1,5 +1,5 @@
 import React from "react";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useNavigation } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { getDashboardData } from "../services/dashboard.server";
@@ -23,15 +23,27 @@ export const loader = async ({ request }) => {
 
 export default function DashboardPage() {
   const loaderData = useLoaderData() || {};
+  const navigation = useNavigation();
+  const isLoading = navigation.state === "loading" || navigation.state === "submitting";
+
   const {
     kpiData = [],
     chartData = [],
+    chartData7 = [],
+    chartData30 = [],
     recentActivityData = [],
   } = loaderData;
 
   return (
     <div className="dashboard-root">
       <div className="dashboard-inner">
+        {isLoading && (
+          <div className="dashboard-loading-banner">
+            <div className="dashboard-spinner" />
+            <span>Updating store metrics & SKU trend data...</span>
+          </div>
+        )}
+
         <DashboardHeader />
 
         {/* ── Section 1: KPI Cards ────────────────────────────────────── */}
@@ -43,7 +55,11 @@ export default function DashboardPage() {
 
         {/* ── Section 2 & 3: Generation Trend + Quick Actions ─────────── */}
         <div className="middle-grid">
-          <GenerationTrend data={chartData} />
+          <GenerationTrend
+            data={chartData}
+            chartData7={chartData7}
+            chartData30={chartData30}
+          />
           <QuickActions items={quickActionsData} />
         </div>
 

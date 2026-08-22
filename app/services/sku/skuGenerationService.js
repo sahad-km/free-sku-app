@@ -46,14 +46,16 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function processProductGroupMutation({ admin, group, shopDomain, runId }) {
   const bulkInput = group.variantsToUpdate.map((v) => ({
     id: v.variantId,
-    sku: v.newSku,
+    inventoryItem: {
+      sku: v.newSku,
+    },
   }));
 
   const auditRows = [];
 
   try {
     const response = await admin.graphql(`
-      mutation bulkUpdateVariants($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+      mutation bulkUpdateVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
         productVariantsBulkUpdate(productId: $productId, variants: $variants) {
           product { id }
           productVariants { id sku }

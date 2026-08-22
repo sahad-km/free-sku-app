@@ -151,12 +151,14 @@ export async function resolveDuplicateGroup({
   for (const groupItem of Object.values(productGroups)) {
     const bulkInput = groupItem.variants.map((v) => ({
       id: v.variantId,
-      sku: v.newSku,
+      inventoryItem: {
+        sku: v.newSku,
+      },
     }));
 
     try {
       const updateRes = await admin.graphql(`
-        mutation resolveDuplicateVariants($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+        mutation resolveDuplicateVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
           productVariantsBulkUpdate(productId: $productId, variants: $variants) {
             product { id }
             productVariants { id sku }

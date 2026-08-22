@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -10,8 +10,46 @@ import {
 } from "recharts";
 import { ChevronDownIcon } from "./Icons";
 
-export default function GenerationTrend({ data }) {
-  const [period, setPeriod] = useState("Last 7 days");
+export default function GenerationTrend({ data, chartData7, chartData30 }) {
+  const [period, setPeriod] = useState("7"); // "7" or "30"
+
+  const displayData = useMemo(() => {
+    if (period === "30") {
+      return chartData30 || data || [];
+    }
+    return chartData7 || data || [];
+  }, [period, chartData7, chartData30, data]);
+
+  // Dynamic max value calculation for user data
+  const maxSkus = useMemo(() => {
+    if (!displayData || displayData.length === 0) return 0;
+    return Math.max(...displayData.map((d) => d.skus || 0), 0);
+  }, [displayData]);
+
+  // Compute upper limit with headroom so top Y-axis label is always bigger than user max data
+  const yUpper = useMemo(() => {
+    if (maxSkus === 0) return 10;
+    // Add 25% headroom above highest user data point
+    const padded = Math.ceil(maxSkus * 1.25);
+
+    if (padded <= 10) return 10;
+    if (padded <= 20) return Math.ceil(padded / 5) * 5;
+    if (padded <= 100) return Math.ceil(padded / 10) * 10;
+    if (padded <= 500) return Math.ceil(padded / 50) * 50;
+    return Math.ceil(padded / 100) * 100;
+  }, [maxSkus]);
+
+  // Build 5 evenly spaced ticks on Y-axis
+  const yTicks = useMemo(() => {
+    const step = yUpper / 4;
+    return [
+      0,
+      Math.round(step),
+      Math.round(step * 2),
+      Math.round(step * 3),
+      yUpper,
+    ];
+  }, [yUpper]);
 
   return (
     <div className="card chart-card">
@@ -23,9 +61,8 @@ export default function GenerationTrend({ data }) {
             onChange={(e) => setPeriod(e.target.value)}
             className="period-select-input"
           >
-            <option value="Last 7 days">Last 7 days</option>
-            <option value="Last 30 days">Last 30 days</option>
-            <option value="Last 90 days">Last 90 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
           </select>
           <ChevronDownIcon size={14} color="#6B7280" />
         </div>
@@ -34,8 +71,8 @@ export default function GenerationTrend({ data }) {
       <div className="chart-container">
         <ResponsiveContainer width="100%" height={250}>
           <AreaChart
-            data={data}
-            margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
+            data={displayData}
+            margin={{ top: 16, right: 16, left: -10, bottom: 0 }}
           >
             <defs>
               <linearGradient id="purpleTrendGradient" x1="0" y1="0" x2="0" y2="1">
@@ -54,13 +91,15 @@ export default function GenerationTrend({ data }) {
               axisLine={false}
               tick={{ fontSize: 12, fill: "#6B7280", fontWeight: 400 }}
               dy={8}
+              interval={period === "30" ? 4 : 0}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tick={{ fontSize: 12, fill: "#6B7280", fontWeight: 400 }}
-              ticks={[0, 50, 100, 150, 200]}
-              domain={[0, 200]}
+              ticks={yTicks}
+              domain={[0, yUpper]}
+              width={45}
             />
             <Tooltip
               contentStyle={{

@@ -1,15 +1,16 @@
-import { connectMongoose } from "../../db.mongoose.server";
-import GeneratedSku from "../../models/GeneratedSku.server";
-import SkuGenerationRun from "../../models/SkuGenerationRun.server";
-import { resolveSkuSelection, calculateSelectionScopeCounts } from "./skuSelectionService";
-import { generateSkuForVariant } from "./skuGeneratorService";
-import { getNextSequenceNumber, getCurrentSequenceNumber } from "./skuCounterService";
-import { reserveShopCredits, refundShopCredits } from "./skuCreditService";
-import { validateSelectionPayload, validateSkuConfigPayload } from "./skuValidationService";
-import { validateGenerationEntitlements } from "./skuEntitlementService";
-import { createGenerationRunRecord, updateGenerationRunProgress } from "./generationJobService";
-import { addSkuGenerationJob } from "../queue/skuQueueService.server";
-import { executeShopifyBulkOperationRun } from "./shopifyBulkOpsService.server";
+import { connectMongoose } from "../../db.mongoose.server.js";
+import GeneratedSku from "../../models/GeneratedSku.server.js";
+import SkuGenerationRun from "../../models/SkuGenerationRun.server.js";
+import { resolveSkuSelection, calculateSelectionScopeCounts } from "./skuSelectionService.js";
+import { generateSkuForVariant } from "./skuGeneratorService.js";
+import { getNextSequenceNumber, getCurrentSequenceNumber } from "./skuCounterService.js";
+import { reserveShopCredits, refundShopCredits } from "./skuCreditService.js";
+import { validateSelectionPayload, validateSkuConfigPayload } from "./skuValidationService.js";
+import { validateGenerationEntitlements } from "./skuEntitlementService.js";
+import { createGenerationRunRecord, updateGenerationRunProgress } from "./generationJobService.js";
+import { addSkuGenerationJob } from "../queue/skuQueueService.server.js";
+import { executeShopifyBulkOperationRun } from "./shopifyBulkOpsService.server.js";
+import { sendSkuRunCompletionEmail } from "../email/emailService.server.js";
 
 /**
  * High-Scale Controlled Concurrency Helper
@@ -46,14 +47,16 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function processProductGroupMutation({ admin, group, shopDomain, runId }) {
   const bulkInput = group.variantsToUpdate.map((v) => ({
     id: v.variantId,
-    sku: v.newSku,
+    inventoryItem: {
+      sku: v.newSku,
+    },
   }));
 
   const auditRows = [];
 
   try {
     const response = await admin.graphql(`
-      mutation bulkUpdateVariants($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+      mutation bulkUpdateVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
         productVariantsBulkUpdate(productId: $productId, variants: $variants) {
           product { id }
           productVariants { id sku }
@@ -238,7 +241,7 @@ export async function executeSkuGenerationRun({
   }
 
   // 7. Enqueue to BullMQ if Redis Queue is available and not already inside Worker
-  if (!existingRunId && totalVariants > 50) {
+  if (!existingRunId) {
     const queueRes = await addSkuGenerationJob({
       runId,
       shopDomain,
@@ -349,13 +352,26 @@ export async function executeSkuGenerationRun({
       if (groupsList.length > 0) {
         const mutationResults = await mapConcurrent(groupsList, 5, async (group) => {
           await sleep(50);
-          return processProductGroupMutation({ admin, group, shopDomain, runId });
-        });
-
-        mutationResults.forEach((res) => {
+          const res = await processProductGroupMutation({ admin, group, shopDomain, runId });
+          
           overallSuccessful += res.successful;
           overallFailed += res.failed;
           overallProcessed += res.successful + res.failed;
+
+          // Incrementally update progress in DB for smooth frontend polling
+          updateGenerationRunProgress({
+            runId,
+            processed: overallProcessed,
+            successful: overallSuccessful,
+            failed: overallFailed,
+            skipped: overallSkipped,
+            status: "PROCESSING",
+          }).catch(() => {});
+
+          return res;
+        });
+
+        mutationResults.forEach((res) => {
           if (res.auditRows) pageAuditRows.push(...res.auditRows);
         });
       }
@@ -365,15 +381,6 @@ export async function executeSkuGenerationRun({
           console.warn("[Generation Engine] Audit insert warning:", e.message)
         );
       }
-
-      await updateGenerationRunProgress({
-        runId,
-        processed: overallProcessed,
-        successful: overallSuccessful,
-        failed: overallFailed,
-        skipped: overallSkipped,
-        status: "PROCESSING",
-      });
     }
 
     const creditsConsumed = overallSuccessful;
@@ -400,44 +407,51 @@ export async function executeSkuGenerationRun({
     });
   };
 
-  // 9. Execute based on Variant Count & Routing rules:
-  // - Small batch (<= 50): Inline synchronous execution
-  if (totalVariants <= 50) {
-    await runStreamedExecution();
-    const finalRun = await SkuGenerationRun.findById(runId);
-    return {
-      success: finalRun.status !== "Failed",
-      runId,
-      status: finalRun.status,
-      summary: {
-        totalProducts,
-        totalVariants,
-        processedVariants: finalRun.processedVariants,
-        generated: finalRun.successfulVariants,
-        skipped: finalRun.skippedVariants,
-        failed: finalRun.failedVariants,
-        creditsUsed: finalRun.successfulVariants,
-      },
-    };
-  }
-
-  // - Massive batch (> 1,000 variants): Shopify Bulk Operations API Engine!
+  // 9. Target Execution Engine Routing
   const targetExecution = async () => {
-    if (totalVariants > 1000) {
-      console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Shopify Bulk Operations API Engine`);
-      await executeShopifyBulkOperationRun({
-        admin,
-        session,
-        selection,
-        skuConfiguration,
-        ruleName,
+    try {
+      if (totalVariants > 1000) {
+        console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Shopify Bulk Operations API Engine`);
+        await executeShopifyBulkOperationRun({
+          admin,
+          session,
+          selection,
+          skuConfiguration,
+          ruleName,
+          runId,
+          totalVariants,
+          startSeqNum,
+        });
+      } else {
+        console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Streamed GraphQL Concurrency Engine`);
+        await runStreamedExecution();
+      }
+
+      // Fetch final run status and trigger store email notification
+      const finalRun = await SkuGenerationRun.findById(runId);
+      if (finalRun) {
+        sendSkuRunCompletionEmail({
+          shopDomain,
+          runId,
+          runSummary: {
+            ruleName,
+            status: finalRun.status,
+            totalVariants,
+            processedVariants: finalRun.processedVariants,
+            successfulVariants: finalRun.successfulVariants,
+            failedVariants: finalRun.failedVariants,
+            skippedVariants: finalRun.skippedVariants,
+            errorSummary: finalRun.errorSummary || "",
+          },
+        }).catch((e) => console.warn("[SkuGeneration] Email trigger warning:", e.message));
+      }
+    } catch (err) {
+      console.error(`[Async Generation Engine Error for run ${runId}]:`, err.message);
+      await updateGenerationRunProgress({
         runId,
-        totalVariants,
-        startSeqNum,
-      });
-    } else {
-      console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Streamed GraphQL Concurrency Engine`);
-      await runStreamedExecution();
+        status: "Failed",
+        errorSummary: err.message,
+      }).catch(() => {});
     }
   };
 
@@ -447,14 +461,9 @@ export async function executeSkuGenerationRun({
     return { success: true, runId, status: "Completed" };
   }
 
-  // Fallback in-process async execution when BullMQ/Redis is not configured
+  // Non-blocking in-process async execution (or when BullMQ/Redis is not configured)
   targetExecution().catch((err) => {
-    console.error("[Async Generation Engine Error]:", err.message);
-    updateGenerationRunProgress({
-      runId,
-      status: "Failed",
-      errorSummary: err.message,
-    }).catch(() => {});
+    console.error("[Async Engine Unhandled Error]:", err.message);
   });
 
   return {

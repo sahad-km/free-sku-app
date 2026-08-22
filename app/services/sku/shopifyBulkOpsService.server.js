@@ -9,8 +9,8 @@ import { generateSkuForVariant } from "./skuGeneratorService";
  * Enables zero-rate-limit batch mutations for massive catalogs (1,000 to 100,000+ variants).
  */
 
-const BULK_VARIANT_MUTATION = `
-  mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+export const BULK_OPERATION_MUTATION_TEMPLATE = `
+  mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
     productVariantsBulkUpdate(productId: $productId, variants: $variants) {
       product { id }
       productVariants { id sku }
@@ -251,7 +251,9 @@ export async function executeShopifyBulkOperationRun({
 
         variantsToUpdate.push({
           id: variant.id,
-          sku: genResult.sku,
+          inventoryItem: {
+            sku: genResult.sku,
+          },
         });
 
         auditRows.push({
