@@ -209,21 +209,24 @@ button, input, select, textarea {
 /* ─── 2-Column Main Layout ───────────────────────────────────────────── */
 .main-two-column-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 24px;
   align-items: start;
+  width: 100%;
 }
 
 .main-left-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 .sidebar-right-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 /* ─── Section Card Base ──────────────────────────────────────────────── */

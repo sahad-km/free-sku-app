@@ -250,8 +250,9 @@ button, input, select, textarea {
 /* ─── Middle Section (Chart + Quick Actions) ─────────────────────────── */
 .middle-grid {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 20px;
+  width: 100%;
 }
 
 /* ─── Chart Card ─────────────────────────────────────────────────────── */
@@ -389,8 +390,9 @@ button, input, select, textarea {
 /* ─── Bottom Section (Recent Activity + Recommended) ─────────────────── */
 .bottom-grid {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 20px;
+  width: 100%;
 }
 
 /* ─── Recent Activity ───────────────────────────────────────────────── */

@@ -143,21 +143,24 @@ button, input, select, textarea {
 /* ─── Main 2-Column Grid Layout ───────────────────────────────────────── */
 .dup-main-grid {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 20px;
   align-items: start;
+  width: 100%;
 }
 
 .dup-left-section {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 .detection-sidebar-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 /* ─── Summary KPI Cards ──────────────────────────────────────────────── */
