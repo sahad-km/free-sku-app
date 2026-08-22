@@ -2,7 +2,7 @@
 
 client_id = "390bd89f0367a51cc80c1f8bc8f942d0"
 name = "SKU Bulk Generator"
-application_url = "https://example.com"
+application_url = "https://sku-bulk-generator.onrender.com"
 embedded = true
 
 [webhooks]
@@ -13,8 +13,11 @@ api_version = "2026-10"
 scopes = "write_metaobject_definitions,write_metaobjects,write_products"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ 
+  "https://sku-bulk-generator.onrender.com/auth/callback",
+  "https://sku-bulk-generator.onrender.com/auth/shopify/callback",
+  "https://sku-bulk-generator.onrender.com/api/auth"
+]
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
