@@ -29,7 +29,6 @@ export default function App() {
         <s-link href="/app/generate-history">Generate History</s-link>
         <s-link href="/app/auto-sku">Auto SKU</s-link>
         <s-link href="/app/duplicated-sku">Duplicated SKU</s-link>
-        <s-link href="/app/pricing">Plans & Pricing</s-link>
         <s-link href="/app/help">FAQ & Help</s-link>
       </s-app-nav>
       <Outlet />

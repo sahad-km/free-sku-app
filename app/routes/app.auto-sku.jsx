@@ -231,9 +231,6 @@ export default function AutoSkuPage() {
           {/* Right Column: How it works & Tips Sidebar */}
           <HowItWorksSidebar onCreateNewRule={handleOpenCreateModal} />
         </div>
-
-        {/* ── Bottom Upgrade Banner ─────────────────────────────────── */}
-        <UpgradeBanner />
       </div>
 
       {/* ── Modals & Wizards ────────────────────────────────────────── */}

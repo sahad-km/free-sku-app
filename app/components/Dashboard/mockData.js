@@ -61,7 +61,6 @@ export const quickActionsData = [
     title: "Automations",
     description: "Manage automated rules",
     iconType: "automations",
-    badge: "Pro",
     route: "/app/auto-sku",
   },
   {
@@ -69,7 +68,6 @@ export const quickActionsData = [
     title: "Duplicate SKUs",
     description: "Find and resolve duplicates",
     iconType: "duplicate",
-    badge: "Pro",
     route: "/app/duplicated-sku",
   },
 ];
@@ -127,7 +125,6 @@ export const recommendationsData = [
   {
     id: "auto-sku",
     title: "Automated SKU",
-    badge: "Pro",
     description: "Auto generate SKUs for new products.",
     actionText: "Set up",
     theme: "purple",
@@ -137,7 +134,6 @@ export const recommendationsData = [
   {
     id: "duplicate-scanner",
     title: "Duplicate scanner",
-    badge: "Pro",
     description: "Find and fix duplicate SKUs.",
     actionText: "Scan now",
     theme: "blue",

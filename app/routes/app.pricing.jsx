@@ -1,36 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { useLoaderData, useFetcher, useSearchParams } from "react-router";
+import { redirect } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import { syncBillingState, requestSubscription, cancelSubscription } from "../services/billing/shopifyBillingService.server";
-import { getShopEntitlements } from "../services/billing/entitlementService.server";
-import { getPlanHandleFromName } from "../services/billing/planConfig.server";
-import PricingHeader from "../components/Pricing/PricingHeader";
-import PricingCardGrid from "../components/Pricing/PricingCardGrid";
-import FeatureComparisonTable from "../components/Pricing/FeatureComparisonTable";
-import SupportSidebarCards from "../components/Pricing/SupportSidebarCards";
-import MoneyBackBanner from "../components/Pricing/MoneyBackBanner";
-import { useToast } from "../components/Common/Toast";
-import "../styles/app.pricing.css";
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
-  const shopDomain = session.shop;
-
-  let billingInfo;
-  try {
-    billingInfo = await syncBillingState(admin, shopDomain);
-  } catch (err) {
-    console.warn(`[PricingLoader] syncBillingState warning for ${shopDomain}:`, err.message);
-    billingInfo = await getShopEntitlements(shopDomain);
-  }
-
-  return {
-    shopDomain,
-    currentPlan: billingInfo.planName || "Free",
-    billingInterval: billingInfo.billingInterval || "monthly",
-    status: billingInfo.status || "FREE",
-  };
+  await authenticate.admin(request);
+  return redirect("/app");
 };
 
 export const action = async ({ request }) => {

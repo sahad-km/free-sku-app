@@ -42,7 +42,6 @@ export default function ExtraComponentsSection({
           <div>
             <div className="section-title-row">
               <h2 className="section-title">Extra components</h2>
-              <span className="paid-pill-badge">Paid</span>
             </div>
             <p className="section-subtitle">
               Configure character length rules for product and variant details to add them to your SKU layout.
