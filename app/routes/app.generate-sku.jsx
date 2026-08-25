@@ -289,7 +289,9 @@ export default function GenerateSkuPage() {
   };
 
   const handleConfirmGenerate = async () => {
+    if (isGenerating) return;
     setIsGenerating(true);
+    setIsProgressModalOpen(true);
 
     const skuConfiguration = {
       prefix,
@@ -336,14 +338,15 @@ export default function GenerateSkuPage() {
 
       if (resJson.success && resJson.runId) {
         setActiveRunId(resJson.runId);
-        setIsProgressModalOpen(true);
         setTimeout(() => setIsGenerating(false), 600);
       } else {
         setIsGenerating(false);
+        setIsProgressModalOpen(false);
         showToast(resJson.message || resJson.error || "Failed to start generation run", "error");
       }
     } catch (err) {
       setIsGenerating(false);
+      setIsProgressModalOpen(false);
       showToast(`Network error executing generation: ${err.message}`, "error");
     }
   };
@@ -374,6 +377,7 @@ export default function GenerateSkuPage() {
   };
 
   const handleHeaderNext = () => {
+    if (isGenerating) return;
     if (activeStep === 1) {
       setActiveStep(2);
     } else if (activeStep === 2) {
@@ -394,6 +398,7 @@ export default function GenerateSkuPage() {
           onNextStep={handleHeaderNext}
           onBack={() => setActiveStep(activeStep > 1 ? activeStep - 1 : 1)}
           isSaving={isSaving}
+          isGenerating={isGenerating}
         />
 
         {/* ── Step Progress Indicator Bar ────────────────────────────── */}

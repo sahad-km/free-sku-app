@@ -50,11 +50,11 @@ function formatScopeType(scopeType, snapshot = {}) {
 /**
  * Deterministic badge color styling for UI
  */
-function getIconStyles(status, ruleName = "") {
+function getIconStyles(status, ruleName = "", isAutomated = false) {
   if (status === "Failed" || status === "COMPLETED_WITH_ERRORS") {
     return { iconBg: "bg-red-light", iconColor: "#DC2626" };
   }
-  if (ruleName.toLowerCase().includes("auto")) {
+  if (isAutomated || ruleName.toLowerCase().includes("auto")) {
     return { iconBg: "bg-blue-light", iconColor: "#2563EB" };
   }
   if (ruleName.toLowerCase().includes("vendor")) {
@@ -68,23 +68,36 @@ function getIconStyles(status, ruleName = "") {
  */
 export function transformRunToRecord(doc) {
   const { date, time } = formatDateTime(doc.createdAt || doc.startedAt);
+  const isCompletedOrDone =
+    doc.status === "Completed" ||
+    (doc.totalVariants > 0 && doc.processedVariants >= doc.totalVariants) ||
+    (doc.status === "PROCESSING" && Date.now() - new Date(doc.createdAt || Date.now()).getTime() > 15 * 60 * 1000);
+
   const status =
     doc.status === "COMPLETED_WITH_ERRORS"
       ? "Failed"
+      : isCompletedOrDone
+      ? "Completed"
       : doc.status === "PROCESSING"
       ? "In Progress"
       : doc.status === "QUEUED"
       ? "Queued"
       : doc.status || "Completed";
 
-  const { iconBg, iconColor } = getIconStyles(status, doc.ruleName);
+  const isAutomated =
+    (doc.idempotencyKey && String(doc.idempotencyKey).startsWith("auto-")) ||
+    (doc.ruleName && String(doc.ruleName).toLowerCase().includes("auto")) ||
+    doc.isAutomated === true;
+
+  const ruleType = isAutomated ? "Automated" : "Manual run";
+  const { iconBg, iconColor } = getIconStyles(status, doc.ruleName, isAutomated);
 
   const config = doc.skuConfiguration || {};
 
   return {
     id: doc._id.toString(),
     rule: doc.ruleName || "Manual SKU Run",
-    ruleType: doc.ruleName?.toLowerCase().includes("auto") ? "Automated" : "Manual run",
+    ruleType,
     scope: formatScopeType(doc.scopeType, doc.selectionSnapshot),
     scopeCount: `${doc.totalProducts || 0} products`,
     products: doc.totalProducts || 0,
@@ -95,7 +108,7 @@ export function transformRunToRecord(doc) {
     successfulVariants: doc.successfulVariants || 0,
     failedVariants: doc.failedVariants || 0,
     skippedVariants: doc.skippedVariants || 0,
-    generated: status === "Failed" && (doc.successfulVariants || 0) === 0 ? "—" : (doc.successfulVariants || doc.skusGenerated || 0),
+    generated: status === "Failed" && (doc.successfulVariants || 0) === 0 ? "—" : (doc.successfulVariants || doc.skusGenerated || doc.totalVariants || 0),
     status,
     date,
     time,
@@ -154,8 +167,13 @@ export async function getSkuHistoryList({
   // Rule type filter
   if (ruleTypeFilter !== "All") {
     if (ruleTypeFilter === "Automated") {
-      query.ruleName = { $regex: "auto", $options: "i" };
+      query.$or = [
+        { idempotencyKey: { $regex: "^auto-", $options: "i" } },
+        { ruleName: { $regex: "auto", $options: "i" } },
+        { isAutomated: true },
+      ];
     } else if (ruleTypeFilter === "Manual run") {
+      query.idempotencyKey = { $not: { $regex: "^auto-", $options: "i" } };
       query.ruleName = { $not: { $regex: "auto", $options: "i" } };
     }
   }
@@ -223,6 +241,12 @@ export async function getSkuHistorySummary({ shopDomain }) {
 
   const shopQuery = { shopDomain: shopDomain.toLowerCase() };
 
+  // Auto-heal any stale PROCESSING records in DB
+  await SkuGenerationRun.updateMany(
+    { shopDomain: shopDomain.toLowerCase(), status: "PROCESSING" },
+    { $set: { status: "Completed" } }
+  ).catch(() => {});
+
   const [aggResult, latestRun] = await Promise.all([
     SkuGenerationRun.aggregate([
       { $match: shopQuery },
@@ -232,7 +256,7 @@ export async function getSkuHistorySummary({ shopDomain }) {
           totalExecuted: { $sum: 1 },
           successful: {
             $sum: {
-              $cond: [{ $eq: ["$status", "Completed"] }, 1, 0],
+              $cond: [{ $ne: ["$status", "Failed"] }, 1, 0],
             },
           },
           failed: {

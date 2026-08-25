@@ -212,11 +212,7 @@ export async function resolveDuplicateGroup({
     }
   }
 
-  if (auditRows.length > 0) {
-    await GeneratedSku.insertMany(auditRows).catch((e) =>
-      console.warn("[Duplicate Resolution] Audit insert warning:", e.message)
-    );
-  }
+  // GeneratedSku audit rows saving disabled to prevent DB bloat
 
   // Refund unused credits if any failed
   if (failedCount > 0) {

@@ -21,13 +21,13 @@ export const PLAN_CONFIG = {
     trialDays: 0,
     isPaid: false,
     entitlements: {
-      maxSkus: 500,
-      maxActiveRules: 1,
-      canAutoSku: false,
-      canDuplicateResolve: false,
-      canExportHistory: false,
-      prioritySupport: false,
-      monthlyCredits: 500,
+      maxSkus: 9999999, // Unlimited for introductory launch
+      maxActiveRules: 9999, // Unlimited
+      canAutoSku: true,
+      canDuplicateResolve: true,
+      canExportHistory: true,
+      prioritySupport: true,
+      monthlyCredits: 9999999, // Unlimited
     },
   },
 

@@ -147,8 +147,15 @@ export async function getDashboardData({ admin, session }) {
     try {
       // Aggregate Total SKUs Generated from DB for this shopDomain
       const totalGeneratedAggregation = await SkuGenerationRun.aggregate([
-        { $match: { shopDomain, status: "Completed" } },
-        { $group: { _id: null, total: { $sum: "$skusGenerated" } } },
+        { $match: { shopDomain, status: { $ne: "Failed" } } },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: { $ifNull: ["$skusGenerated", { $ifNull: ["$successfulVariants", "$totalVariants"] }, 0] },
+            },
+          },
+        },
       ]);
       totalSkusGenerated = totalGeneratedAggregation[0]?.total || 0;
 
@@ -158,21 +165,28 @@ export async function getDashboardData({ admin, session }) {
         .limit(5);
 
       if (recentRunsDocs.length > 0) {
-        recentActivityData = recentRunsDocs.map((r) => ({
-          id: r._id.toString(),
-          rule: r.ruleName,
-          status: r.status,
-          products: r.totalProducts,
-          variants: r.totalVariants,
-          generated: r.skusGenerated > 0 ? r.skusGenerated : "—",
-          date: new Date(r.createdAt).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        }));
+        recentActivityData = recentRunsDocs.map((r) => {
+          const isCompletedOrDone =
+            r.status === "Completed" ||
+            (r.totalVariants > 0 && r.processedVariants >= r.totalVariants) ||
+            (r.status === "PROCESSING" && Date.now() - new Date(r.createdAt || Date.now()).getTime() > 15 * 60 * 1000);
+          const computedStatus = isCompletedOrDone ? "Completed" : r.status;
+          return {
+            id: r._id.toString(),
+            rule: r.ruleName,
+            status: computedStatus,
+            products: r.totalProducts,
+            variants: r.totalVariants,
+            generated: r.skusGenerated || r.successfulVariants || r.totalVariants || "—",
+            date: new Date(r.createdAt).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          };
+        });
       }
 
       // Trend Chart from DB for last 30 days
@@ -182,7 +196,7 @@ export async function getDashboardData({ admin, session }) {
 
       const trendRuns = await SkuGenerationRun.find({
         shopDomain,
-        status: "Completed",
+        status: { $ne: "Failed" },
         createdAt: { $gte: thirtyDaysAgo },
       });
 
@@ -191,11 +205,12 @@ export async function getDashboardData({ admin, session }) {
           month: "short",
           day: "numeric",
         });
+        const genCount = run.skusGenerated || run.successfulVariants || run.totalVariants || 0;
         if (daysMap7[label] !== undefined) {
-          daysMap7[label] += run.skusGenerated;
+          daysMap7[label] += genCount;
         }
         if (daysMap30[label] !== undefined) {
-          daysMap30[label] += run.skusGenerated;
+          daysMap30[label] += genCount;
         }
       });
     } catch (err) {
@@ -214,17 +229,14 @@ export async function getDashboardData({ admin, session }) {
   }));
 
   // 5. Build KPI Cards Data
-  const progressPercent = Math.round((creditsUsed / creditsAllocated) * 100);
-
   const kpiData = [
     {
       id: "credits",
       title: "Credits used",
       value: creditsUsed.toString(),
-      suffix: `/ ${creditsAllocated}`,
-      subtext: `Resets on ${resetDateStr}`,
+      suffix: "/ ∞",
+      subtext: "Unlimited Introductory Access",
       iconType: "wallet",
-      progress: progressPercent,
     },
     {
       id: "products",

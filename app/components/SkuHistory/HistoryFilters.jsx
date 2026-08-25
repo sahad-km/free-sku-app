@@ -58,7 +58,7 @@ export default function HistoryFilters({
               <option value="All">All types</option>
               <option value="Manual run">Manual run</option>
               <option value="Automated">Automated</option>
-              <option value="Bulk generation">Bulk generation</option>
+              {/* <option value="Bulk generation">Bulk generation</option> */}
             </select>
             <ChevronDownIcon size={14} color="#6B7280" />
           </div>

@@ -44,9 +44,12 @@ export const action = async ({ request }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("[API Generate SKU Error]:", err.message);
+    if (err instanceof Response) {
+      return err;
+    }
+    console.error("[API Generate SKU Error]:", err?.message || err);
     return new Response(
-      JSON.stringify({ success: false, error: err.message || "Failed to execute SKU generation" }),
+      JSON.stringify({ success: false, error: err?.message || String(err) }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

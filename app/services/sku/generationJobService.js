@@ -58,6 +58,13 @@ export async function updateGenerationRunProgress({
 }) {
   await connectMongoose();
 
+  const currentRun = await SkuGenerationRun.findById(runId);
+  if (currentRun && (currentRun.status === "Completed" || currentRun.status === "COMPLETED_WITH_ERRORS" || currentRun.status === "Failed")) {
+    if (status === "PROCESSING") {
+      return currentRun;
+    }
+  }
+
   const updateFields = {
     $set: {
       processedVariants: processed,

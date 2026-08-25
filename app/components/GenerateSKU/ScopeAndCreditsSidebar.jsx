@@ -63,7 +63,7 @@ export default function ScopeAndCreditsSidebar({
               <InfoIcon size={14} color="#9CA3AF" />
               <span>Credits available</span>
             </div>
-            <span className="credit-value-sub">{creditsAvailable} credits</span>
+            <span className="credit-value-sub">Unlimited (∞)</span>
           </div>
 
           <div className="credit-row">

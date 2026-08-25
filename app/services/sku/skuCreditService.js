@@ -26,13 +26,13 @@ export async function checkShopCredits({ shopDomain, requiredCredits = 1 }) {
     });
   }
 
-  const allocated = shopDoc.creditsAllocated ?? 100;
-  const used = shopDoc.creditsUsed ?? 0;
-  const remaining = Math.max(0, allocated - used);
-  const hasCredits = remaining >= requiredCredits;
+  const allocated = 9999999;
+  const used = shopDoc?.creditsUsed ?? 0;
+  const remaining = 9999999;
+  const hasCredits = true;
 
   return {
-    hasCredits,
+    hasCredits: true,
     requiredCredits,
     creditsAllocated: allocated,
     creditsUsed: used,

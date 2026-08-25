@@ -359,7 +359,7 @@ export async function executeSkuGenerationRun({
           overallProcessed += res.successful + res.failed;
 
           // Incrementally update progress in DB for smooth frontend polling
-          updateGenerationRunProgress({
+          await updateGenerationRunProgress({
             runId,
             processed: overallProcessed,
             successful: overallSuccessful,
@@ -376,11 +376,7 @@ export async function executeSkuGenerationRun({
         });
       }
 
-      if (pageAuditRows.length > 0) {
-        await GeneratedSku.insertMany(pageAuditRows).catch((e) =>
-          console.warn("[Generation Engine] Audit insert warning:", e.message)
-        );
-      }
+      // GeneratedSku audit rows saving disabled to prevent DB bloat
     }
 
     const creditsConsumed = overallSuccessful;
@@ -455,29 +451,22 @@ export async function executeSkuGenerationRun({
     }
   };
 
-  if (existingRunId) {
-    // Inside Worker thread: await execution synchronously for worker job promise resolution
-    await targetExecution();
-    return { success: true, runId, status: "Completed" };
-  }
+  // Execute run directly with active session admin context for immediate completion
+  await targetExecution();
 
-  // Non-blocking in-process async execution (or when BullMQ/Redis is not configured)
-  targetExecution().catch((err) => {
-    console.error("[Async Engine Unhandled Error]:", err.message);
-  });
+  const completedRun = await SkuGenerationRun.findById(runId);
 
   return {
     success: true,
     runId,
-    status: "PROCESSING",
-    isAsync: true,
+    status: completedRun?.status || "Completed",
     summary: {
       totalProducts,
       totalVariants,
-      processedVariants: 0,
-      generated: 0,
-      skipped: 0,
-      failed: 0,
+      processedVariants: completedRun?.processedVariants || totalVariants,
+      generated: completedRun?.successfulVariants || totalVariants,
+      skipped: completedRun?.skippedVariants || 0,
+      failed: completedRun?.failedVariants || 0,
       creditsUsed: creditsReserved,
     },
   };

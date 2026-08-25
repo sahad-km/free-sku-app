@@ -304,11 +304,7 @@ export async function executeShopifyBulkOperationRun({
   console.log(`[BulkOps Engine] Triggering Shopify bulkOperationRunMutation (stagedUploadPath: ${stagedUploadPath})...`);
   const bulkOp = await runBulkOperationMutation(admin, stagedUploadPath);
 
-  if (auditRows.length > 0) {
-    await GeneratedSku.insertMany(auditRows).catch((e) =>
-      console.warn("[BulkOps Engine] Audit insert warning:", e.message)
-    );
-  }
+  // GeneratedSku audit rows saving disabled to prevent DB bloat
 
   console.log(`[BulkOps Engine] Polling bulk operation ID: ${bulkOp.id}...`);
   const pollResult = await pollBulkOperationStatus({

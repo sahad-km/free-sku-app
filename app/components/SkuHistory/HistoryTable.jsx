@@ -230,16 +230,6 @@ export default function HistoryTable({
                                 className="dropdown-menu-item"
                                 onClick={() => {
                                   closeMenu();
-                                  onViewGeneratedSkus(row);
-                                }}
-                                type="button"
-                              >
-                                View generated SKUs
-                              </button>
-                              <button
-                                className="dropdown-menu-item"
-                                onClick={() => {
-                                  closeMenu();
                                   onRunAgain(row);
                                 }}
                                 type="button"

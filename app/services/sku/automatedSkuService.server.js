@@ -226,16 +226,19 @@ export function doesRuleMatchTrigger(rule, triggerType) {
   const ruleTrig = (rule.trigger || "New product added").toLowerCase();
   const incomingTrig = triggerType.toLowerCase();
 
-  if (incomingTrig.includes("create") || incomingTrig.includes("new product")) {
-    return true;
+  // "New product added" rules should ONLY fire on product creation webhooks
+  if (ruleTrig.includes("new product") || ruleTrig.includes("create")) {
+    return incomingTrig.includes("create") || incomingTrig.includes("new product");
   }
 
-  if (incomingTrig.includes("update") || incomingTrig.includes("collection")) {
-    return ruleTrig.includes("collection") || ruleTrig.includes("vendor") || ruleTrig.includes("update") || ruleTrig.includes("new product");
+  // "Product updated" rules fire on update webhooks
+  if (ruleTrig.includes("update")) {
+    return incomingTrig.includes("update");
   }
 
-  if (incomingTrig.includes("schedule") || ruleTrig.includes("schedule")) {
-    return true;
+  // "Collection" / "Vendor" rules fire on collection or update webhooks
+  if (ruleTrig.includes("collection") || ruleTrig.includes("vendor")) {
+    return incomingTrig.includes("collection") || incomingTrig.includes("update");
   }
 
   return true;
@@ -468,11 +471,7 @@ export async function evaluateAutomatedSkuForProduct({
       }
     }
 
-    if (auditRows.length > 0) {
-      await GeneratedSku.insertMany(auditRows).catch((e) =>
-        console.warn("[Automated SKU] Audit insert warning:", e.message)
-      );
-    }
+    // GeneratedSku audit rows saving disabled to prevent DB bloat
 
     // Refund unused credits if any were skipped
     const unusedCredits = variants.length - variantsToUpdate.length;

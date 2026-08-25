@@ -11,11 +11,11 @@ export async function getShopEntitlements({ shopDomain }) {
 
   return {
     plan,
-    maxBatchSize: plan === "Basic" ? 500 : plan === "Pro" ? 5000 : 50000,
+    maxBatchSize: 999999,
     canUseMetafields: true,
     canUseOverwrite: true,
-    canUseAdvancedConditions: plan !== "Basic",
-    canUseAutomatedSku: plan !== "Basic",
+    canUseAdvancedConditions: true,
+    canUseAutomatedSku: true,
   };
 }
 

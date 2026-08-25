@@ -38,27 +38,8 @@ export async function getShopEntitlements(shopDomain) {
  * Validates whether a store can use a specific feature.
  */
 export async function canUseFeature(shopDomain, featureKey) {
-  const { entitlements, credits } = await getShopEntitlements(shopDomain);
-
-  switch (featureKey) {
-    case FEATURES.MANUAL_GENERATE_SKU:
-      return credits.remaining > 0;
-
-    case FEATURES.AUTOMATED_SKU:
-      return true;
-
-    case FEATURES.DUPLICATE_RESOLUTION:
-      return entitlements.canDuplicateResolve && credits.remaining > 0;
-
-    case FEATURES.EXPORT_HISTORY:
-      return entitlements.canExportHistory;
-
-    case FEATURES.PRIORITY_SUPPORT:
-      return entitlements.prioritySupport;
-
-    default:
-      return true;
-  }
+  // Unlimited access for introductory launch
+  return true;
 }
 
 /**
