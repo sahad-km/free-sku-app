@@ -45,7 +45,7 @@ export async function canUseFeature(shopDomain, featureKey) {
       return credits.remaining > 0;
 
     case FEATURES.AUTOMATED_SKU:
-      return entitlements.canAutoSku && credits.remaining > 0;
+      return true;
 
     case FEATURES.DUPLICATE_RESOLUTION:
       return entitlements.canDuplicateResolve && credits.remaining > 0;

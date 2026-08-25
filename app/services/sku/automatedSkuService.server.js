@@ -7,6 +7,8 @@ import { getNextSequenceNumber } from "./skuCounterService";
 import { reserveShopCredits, refundShopCredits } from "./skuCreditService";
 import { createGenerationRunRecord, updateGenerationRunProgress } from "./generationJobService";
 
+import { syncAutomationWebhooks } from "../shopify/webhookSubscriptionService.server";
+
 /**
  * 1. Get All Automation Rules & Summary KPIs for a Store
  */
@@ -27,36 +29,19 @@ export async function getAutomationRules({ shopDomain, search = "", statusTab = 
 
   const rules = await AutomationRule.find(query).sort({ createdAt: -1 }).lean();
 
-  // Calculate summary KPIs across all rules and runs for this shop
+  // Calculate summary KPIs specifically from AUTOMATED rules created for this shop
   const allShopRules = await AutomationRule.find({ shopDomain }).lean();
   const totalRules = allShopRules.length;
   const activeRules = allShopRules.filter((r) => r.status === "Active").length;
 
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  const productsAutomatedThisMonth = allShopRules.reduce((sum, r) => sum + (r.runCount || 0), 0);
+  const skusGeneratedThisMonth = allShopRules.reduce((sum, r) => sum + (r.skusGenerated || 0), 0);
 
-  const monthlyRunStats = await SkuGenerationRun.aggregate([
-    {
-      $match: {
-        shopDomain,
-        createdAt: { $gte: startOfMonth },
-      },
-    },
-    {
-      $group: {
-        _id: null,
-        totalProductsAutomated: { $sum: "$totalProducts" },
-        totalSkusGenerated: { $sum: "$successfulVariants" },
-      },
-    },
-  ]);
-
-  const productsAutomatedThisMonth = monthlyRunStats[0]?.totalProductsAutomated || 0;
-  const skusGeneratedThisMonth = monthlyRunStats[0]?.totalSkusGenerated || 0;
-
-  // Find last run record
-  const lastRunRecord = await SkuGenerationRun.findOne({ shopDomain })
+  // Find last automated rule run record
+  const lastRunRecord = await SkuGenerationRun.findOne({
+    shopDomain,
+    ruleName: { $exists: true, $ne: null, $ne: "" },
+  })
     .sort({ createdAt: -1 })
     .lean();
 
@@ -97,6 +82,7 @@ export async function getAutomationRules({ shopDomain, search = "", statusTab = 
  * 2. Create Automation Rule
  */
 export async function createAutomationRule({
+  admin,
   shopDomain,
   name,
   description = "",
@@ -122,6 +108,12 @@ export async function createAutomationRule({
     lastRunStatus: "none",
   });
 
+  if (admin) {
+    await syncAutomationWebhooks({ admin, shopDomain }).catch((e) =>
+      console.warn("[Automated SKU Sync Warning]:", e.message)
+    );
+  }
+
   return {
     success: true,
     ruleId: rule._id.toString(),
@@ -132,7 +124,7 @@ export async function createAutomationRule({
 /**
  * 3. Update Automation Rule
  */
-export async function updateAutomationRule({ shopDomain, ruleId, updateData }) {
+export async function updateAutomationRule({ admin, shopDomain, ruleId, updateData }) {
   if (!shopDomain) throw new Error("Unauthorized shop domain");
   if (!ruleId) throw new Error("Rule ID is required");
 
@@ -146,6 +138,12 @@ export async function updateAutomationRule({ shopDomain, ruleId, updateData }) {
 
   if (!rule) throw new Error("Automation rule not found");
 
+  if (admin) {
+    await syncAutomationWebhooks({ admin, shopDomain }).catch((e) =>
+      console.warn("[Automated SKU Sync Warning]:", e.message)
+    );
+  }
+
   return {
     success: true,
     rule,
@@ -155,7 +153,7 @@ export async function updateAutomationRule({ shopDomain, ruleId, updateData }) {
 /**
  * 4. Delete Automation Rule
  */
-export async function deleteAutomationRule({ shopDomain, ruleId }) {
+export async function deleteAutomationRule({ admin, shopDomain, ruleId }) {
   if (!shopDomain) throw new Error("Unauthorized shop domain");
   if (!ruleId) throw new Error("Rule ID is required");
 
@@ -164,13 +162,19 @@ export async function deleteAutomationRule({ shopDomain, ruleId }) {
   const deleted = await AutomationRule.findOneAndDelete({ _id: ruleId, shopDomain });
   if (!deleted) throw new Error("Automation rule not found");
 
+  if (admin) {
+    await syncAutomationWebhooks({ admin, shopDomain }).catch((e) =>
+      console.warn("[Automated SKU Sync Warning]:", e.message)
+    );
+  }
+
   return { success: true };
 }
 
 /**
  * 5. Toggle Rule Status (Active <-> Paused)
  */
-export async function toggleAutomationRuleStatus({ shopDomain, ruleId }) {
+export async function toggleAutomationRuleStatus({ admin, shopDomain, ruleId }) {
   if (!shopDomain) throw new Error("Unauthorized shop domain");
   await connectMongoose();
 
@@ -180,6 +184,12 @@ export async function toggleAutomationRuleStatus({ shopDomain, ruleId }) {
   const newStatus = rule.status === "Active" ? "Paused" : "Active";
   rule.status = newStatus;
   await rule.save();
+
+  if (admin) {
+    await syncAutomationWebhooks({ admin, shopDomain }).catch((e) =>
+      console.warn("[Automated SKU Sync Warning]:", e.message)
+    );
+  }
 
   return { success: true, status: newStatus };
 }
@@ -193,7 +203,7 @@ export function doesProductMatchScope(product, scope) {
   const scopeLower = scope.toLowerCase();
 
   if (scopeLower.includes("collection")) {
-    return true; // Products belong to scope collections
+    return true;
   }
 
   if (scopeLower.includes("vendor")) {
@@ -202,6 +212,30 @@ export function doesProductMatchScope(product, scope) {
 
   if (scopeLower.includes("tag")) {
     return Array.isArray(product.tags) && product.tags.length > 0;
+  }
+
+  return true;
+}
+
+/**
+ * Helper: Check if active rule matches incoming trigger event type
+ */
+export function doesRuleMatchTrigger(rule, triggerType) {
+  if (!triggerType || triggerType === "RUN_NOW" || triggerType === "Manual" || triggerType === "Run Now") return true;
+
+  const ruleTrig = (rule.trigger || "New product added").toLowerCase();
+  const incomingTrig = triggerType.toLowerCase();
+
+  if (incomingTrig.includes("create") || incomingTrig.includes("new product")) {
+    return true;
+  }
+
+  if (incomingTrig.includes("update") || incomingTrig.includes("collection")) {
+    return ruleTrig.includes("collection") || ruleTrig.includes("vendor") || ruleTrig.includes("update") || ruleTrig.includes("new product");
+  }
+
+  if (incomingTrig.includes("schedule") || ruleTrig.includes("schedule")) {
+    return true;
   }
 
   return true;
@@ -281,6 +315,7 @@ export async function evaluateAutomatedSkuForProduct({
   let totalFailed = 0;
 
   for (const rule of activeRules) {
+    if (!doesRuleMatchTrigger(rule, triggerType)) continue;
     if (!doesProductMatchScope(product, rule.scope)) continue;
 
     const config = rule.skuConfiguration || {};

@@ -143,40 +143,33 @@ export async function resolveSkuSelection({
       return { products: [], pageInfo: { hasNextPage: false, endCursor: null }, selectionType: "COLLECTIONS" };
     }
 
-    // Query products inside the specified collection GIDs
-    const collectionId = collectionIds[0]; // Primary collection GID
-    const afterStr = cursor ? `, after: "${cursor}"` : "";
-
     const response = await admin.graphql(`
-      query getSelectionCollectionProducts($id: ID!) {
-        collection(id: $id) {
-          id
-          title
-          products(first: ${limit}${afterStr}, sortKey: ${sortConfig.sortKey}, reverse: ${sortConfig.reverse}) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            edges {
-              cursor
-              node {
-                id
-                title
-                handle
-                vendor
-                productType
-                tags
-                createdAt
-                featuredImage { url }
-                variants(first: 250) {
-                  edges {
-                    node {
-                      id
-                      title
-                      sku
-                      price
-                      selectedOptions { name value }
-                      image { url }
+      query getSelectionCollectionsProducts($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on Collection {
+            id
+            title
+            products(first: 250) {
+              edges {
+                node {
+                  id
+                  title
+                  handle
+                  vendor
+                  productType
+                  tags
+                  createdAt
+                  featuredImage { url }
+                  variants(first: 250) {
+                    edges {
+                      node {
+                        id
+                        title
+                        sku
+                        price
+                        selectedOptions { name value }
+                        image { url }
+                      }
                     }
                   }
                 }
@@ -185,14 +178,23 @@ export async function resolveSkuSelection({
           }
         }
       }
-    `, { variables: { id: collectionId } });
+    `, { variables: { ids: collectionIds.slice(0, 50) } });
 
     const resJson = await response.json();
-    const productEdges = resJson?.data?.collection?.products?.edges || [];
-    const pageInfo = resJson?.data?.collection?.products?.pageInfo || { hasNextPage: false, endCursor: null };
+    const collectionNodes = (resJson?.data?.nodes || []).filter(Boolean);
 
-    const products = productEdges.map((e) => parseProductNode(e.node));
-    return { products, pageInfo, selectionType: "COLLECTIONS" };
+    const productMap = {};
+    collectionNodes.forEach((col) => {
+      const pEdges = col.products?.edges || [];
+      pEdges.forEach((e) => {
+        if (e.node && !productMap[e.node.id]) {
+          productMap[e.node.id] = parseProductNode(e.node);
+        }
+      });
+    });
+
+    const products = Object.values(productMap);
+    return { products, pageInfo: { hasNextPage: false, endCursor: null }, selectionType: "COLLECTIONS" };
   }
 
   // ── Mode 3: PRODUCTS ──────────────────────────────────────────────────────
@@ -379,8 +381,54 @@ export async function resolveSkuSelection({
 export async function calculateSelectionScopeCounts({ admin, selection = {} }) {
   const { type = "ALL_PRODUCTS", collectionIds = [], productIds = [], variantIds = [], tag = "" } = selection;
 
-  if (type === "VARIANTS") {
-    const count = variantIds ? variantIds.length : 0;
+  // 1. VARIANTS selection mode
+  if ((type === "VARIANTS" || type === "VARIANT") && variantIds && variantIds.length > 0) {
+    if (admin) {
+      try {
+        const response = await admin.graphql(`
+          query getVariantsScopeCounts($ids: [ID!]!) {
+            nodes(ids: $ids) {
+              ... on ProductVariant {
+                id
+                sku
+                product {
+                  id
+                }
+              }
+            }
+          }
+        `, { variables: { ids: variantIds.slice(0, 250) } });
+
+        const resJson = await response.json();
+        const variantNodes = (resJson?.data?.nodes || []).filter(Boolean);
+
+        const productSet = new Set();
+        let totalVariants = variantNodes.length;
+        let variantsWithSku = 0;
+        let variantsWithoutSku = 0;
+
+        variantNodes.forEach((v) => {
+          if (v.product?.id) productSet.add(v.product.id);
+          const sku = v.sku;
+          if (sku && sku.trim().length > 0) {
+            variantsWithSku++;
+          } else {
+            variantsWithoutSku++;
+          }
+        });
+
+        return {
+          totalProducts: productSet.size,
+          totalVariants,
+          variantsWithSku,
+          variantsWithoutSku,
+          estimatedCredits: totalVariants,
+        };
+      } catch (err) {
+        console.warn("[Selection Service] VARIANTS count query warning:", err.message);
+      }
+    }
+    const count = variantIds.length;
     return {
       totalProducts: Math.min(count, 50),
       totalVariants: count,
@@ -390,9 +438,61 @@ export async function calculateSelectionScopeCounts({ admin, selection = {} }) {
     };
   }
 
-  if (type === "PRODUCTS") {
-    const count = productIds ? productIds.length : 0;
-    // Estimate ~2 variants per product if unknown
+  // 2. PRODUCTS selection mode
+  if ((type === "PRODUCTS" || type === "PRODUCT") && productIds && productIds.length > 0) {
+    if (admin) {
+      try {
+        const response = await admin.graphql(`
+          query getProductsScopeCounts($ids: [ID!]!) {
+            nodes(ids: $ids) {
+              ... on Product {
+                id
+                variants(first: 250) {
+                  edges {
+                    node {
+                      id
+                      sku
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `, { variables: { ids: productIds.slice(0, 250) } });
+
+        const resJson = await response.json();
+        const productNodes = (resJson?.data?.nodes || []).filter(Boolean);
+
+        let totalProducts = productNodes.length;
+        let totalVariants = 0;
+        let variantsWithSku = 0;
+        let variantsWithoutSku = 0;
+
+        productNodes.forEach((product) => {
+          const vEdges = product.variants?.edges || [];
+          vEdges.forEach((vEdge) => {
+            const sku = vEdge.node?.sku;
+            totalVariants++;
+            if (sku && sku.trim().length > 0) {
+              variantsWithSku++;
+            } else {
+              variantsWithoutSku++;
+            }
+          });
+        });
+
+        return {
+          totalProducts,
+          totalVariants,
+          variantsWithSku,
+          variantsWithoutSku,
+          estimatedCredits: totalVariants,
+        };
+      } catch (err) {
+        console.warn("[Selection Service] PRODUCTS count query warning:", err.message);
+      }
+    }
+    const count = productIds.length;
     const estVariants = count * 2;
     return {
       totalProducts: count,
@@ -403,48 +503,212 @@ export async function calculateSelectionScopeCounts({ admin, selection = {} }) {
     };
   }
 
-  // For ALL_PRODUCTS, COLLECTIONS, TAG: fetch target counts via Shopify GraphQL
-  try {
-    let q = "";
-    if (type === "TAG") {
-      q = sanitizeTagQuery(tag);
-    }
+  // 3. TAG selection mode
+  if (type === "TAG") {
+    if (admin) {
+      try {
+        const tagQuery = sanitizeTagQuery(tag);
+        if (tagQuery) {
+          const pResponse = await admin.graphql(`
+            query getTagProductsScopeCounts($query: String!) {
+              productsCount(query: $query) { count }
+              products(first: 250, query: $query) {
+                edges {
+                  node {
+                    id
+                    variants(first: 250) {
+                      edges {
+                        node {
+                          id
+                          sku
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `, { variables: { query: tagQuery } });
 
-    let productsCount = 0;
-    let variantsCount = 0;
+          const pJson = await pResponse.json();
+          const productsCount = pJson?.data?.productsCount?.count || 0;
+          const pEdges = pJson?.data?.products?.edges || [];
 
-    if (type === "COLLECTIONS" && collectionIds.length > 0) {
-      const resp = await admin.graphql(`
-        query getCollectionCount($id: ID!) {
-          collection(id: $id) {
-            productsCount { count }
-          }
+          let totalVariants = 0;
+          let variantsWithSku = 0;
+          let variantsWithoutSku = 0;
+
+          pEdges.forEach((pEdge) => {
+            const vEdges = pEdge.node?.variants?.edges || [];
+            vEdges.forEach((vEdge) => {
+              const sku = vEdge.node?.sku;
+              totalVariants++;
+              if (sku && sku.trim().length > 0) {
+                variantsWithSku++;
+              } else {
+                variantsWithoutSku++;
+              }
+            });
+          });
+
+          return {
+            totalProducts: productsCount || pEdges.length,
+            totalVariants,
+            variantsWithSku,
+            variantsWithoutSku,
+            estimatedCredits: totalVariants,
+          };
         }
-      `, { variables: { id: collectionIds[0] } });
-      const rJson = await resp.json();
-      productsCount = rJson?.data?.collection?.productsCount?.count || 0;
-      variantsCount = productsCount * 2; // Approximate variants
-    } else {
-      const countQuery = q ? `productsCount(query: "${q}") { count }` : `productsCount { count }`;
-      const varQuery = q ? `productVariantsCount(query: "${q}") { count }` : `productVariantsCount { count }`;
+      } catch (err) {
+        console.warn("[Selection Service] TAG count query warning:", err.message);
+      }
+    }
+    return {
+      totalProducts: 0,
+      totalVariants: 0,
+      variantsWithSku: 0,
+      variantsWithoutSku: 0,
+      estimatedCredits: 0,
+    };
+  }
 
+  // 4. COLLECTIONS & ALL_PRODUCTS selection modes
+  try {
+    if ((type === "COLLECTIONS" || type === "COLLECTION") && collectionIds.length > 0) {
+      if (admin) {
+        const resp = await admin.graphql(`
+          query getCollectionsScopeCounts($ids: [ID!]!) {
+            nodes(ids: $ids) {
+              ... on Collection {
+                id
+                products(first: 250) {
+                  edges {
+                    node {
+                      id
+                      variants(first: 250) {
+                        edges {
+                          node {
+                            id
+                            sku
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `, { variables: { ids: collectionIds.slice(0, 50) } });
+        const rJson = await resp.json();
+        const collectionNodes = (rJson?.data?.nodes || []).filter(Boolean);
+
+        const productMap = {};
+        collectionNodes.forEach((col) => {
+          const pEdges = col.products?.edges || [];
+          pEdges.forEach((pEdge) => {
+            if (pEdge.node && !productMap[pEdge.node.id]) {
+              productMap[pEdge.node.id] = pEdge.node;
+            }
+          });
+        });
+
+        const uniqueProducts = Object.values(productMap);
+        let totalProducts = uniqueProducts.length;
+        let totalVariants = 0;
+        let variantsWithSku = 0;
+        let variantsWithoutSku = 0;
+
+        uniqueProducts.forEach((product) => {
+          const vEdges = product.variants?.edges || [];
+          vEdges.forEach((vEdge) => {
+            const sku = vEdge.node?.sku;
+            totalVariants++;
+            if (sku && sku.trim().length > 0) {
+              variantsWithSku++;
+            } else {
+              variantsWithoutSku++;
+            }
+          });
+        });
+
+        return {
+          totalProducts,
+          totalVariants,
+          variantsWithSku,
+          variantsWithoutSku,
+          estimatedCredits: totalVariants,
+        };
+      }
+    } else if (admin) {
       const resp = await admin.graphql(`
         query getCatalogCounts {
-          pCount: ${countQuery}
-          vCount: ${varQuery}
+          pCount: productsCount { count }
+          vCount: productVariantsCount { count }
+          vWithSkuCount: productVariantsCount(query: "sku:*") { count }
         }
       `);
       const rJson = await resp.json();
-      productsCount = rJson?.data?.pCount?.count || 0;
-      variantsCount = rJson?.data?.vCount?.count || 0;
+      const productsCount = rJson?.data?.pCount?.count || 0;
+      const variantsCount = rJson?.data?.vCount?.count || 0;
+      const variantsWithSkuCount = rJson?.data?.vWithSkuCount?.count;
+
+      let variantsWithSku = 0;
+      let variantsWithoutSku = 0;
+
+      if (typeof variantsWithSkuCount === "number" && !isNaN(variantsWithSkuCount)) {
+        variantsWithSku = variantsWithSkuCount;
+        variantsWithoutSku = Math.max(0, variantsCount - variantsWithSku);
+      } else {
+        const pResponse = await admin.graphql(`
+          query getCatalogSampleCounts {
+            products(first: 250) {
+              edges {
+                node {
+                  id
+                  variants(first: 250) {
+                    edges {
+                      node {
+                        id
+                        sku
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `);
+        const pJson = await pResponse.json();
+        const pEdges = pJson?.data?.products?.edges || [];
+        pEdges.forEach((pEdge) => {
+          const vEdges = pEdge.node?.variants?.edges || [];
+          vEdges.forEach((vEdge) => {
+            const sku = vEdge.node?.sku;
+            if (sku && sku.trim().length > 0) {
+              variantsWithSku++;
+            } else {
+              variantsWithoutSku++;
+            }
+          });
+        });
+      }
+
+      return {
+        totalProducts: productsCount,
+        totalVariants: variantsCount,
+        variantsWithSku,
+        variantsWithoutSku,
+        estimatedCredits: variantsCount,
+      };
     }
 
     return {
-      totalProducts: productsCount,
-      totalVariants: variantsCount,
-      variantsWithSku: Math.round(variantsCount * 0.2), // Estimated stats
-      variantsWithoutSku: Math.round(variantsCount * 0.8),
-      estimatedCredits: variantsCount,
+      totalProducts: 0,
+      totalVariants: 0,
+      variantsWithSku: 0,
+      variantsWithoutSku: 0,
+      estimatedCredits: 0,
     };
   } catch (err) {
     console.warn("[Selection Service] Count estimation warning:", err.message);

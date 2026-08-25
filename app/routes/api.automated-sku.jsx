@@ -45,6 +45,7 @@ export const action = async ({ request }) => {
     if (method === "POST") {
       const { name, description, trigger, scope, skuConfiguration } = body;
       const result = await createAutomationRule({
+        admin,
         shopDomain,
         name,
         description,
@@ -59,7 +60,7 @@ export const action = async ({ request }) => {
       const { intent, ruleId, updateData } = body;
 
       if (intent === "toggle-status") {
-        const result = await toggleAutomationRuleStatus({ shopDomain, ruleId });
+        const result = await toggleAutomationRuleStatus({ admin, shopDomain, ruleId });
         return new Response(JSON.stringify(result), { status: 200 });
       }
 
@@ -88,13 +89,13 @@ export const action = async ({ request }) => {
         );
       }
 
-      const result = await updateAutomationRule({ shopDomain, ruleId, updateData });
+      const result = await updateAutomationRule({ admin, shopDomain, ruleId, updateData });
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
     if (method === "DELETE") {
       const { ruleId } = body;
-      const result = await deleteAutomationRule({ shopDomain, ruleId });
+      const result = await deleteAutomationRule({ admin, shopDomain, ruleId });
       return new Response(JSON.stringify(result), { status: 200 });
     }
 

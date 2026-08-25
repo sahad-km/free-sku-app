@@ -16,6 +16,7 @@ import {
 } from "../components/AutomatedSku/AutomationModals";
 import { useToast } from "../components/Common/Toast";
 import "../styles/app.auto-sku.css";
+import "../styles/app.generate-sku.css";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -95,6 +96,11 @@ export default function AutoSkuPage() {
   // ─── Action Handlers ──────────────────────────────────────────────────
   const handleToggleStatus = async (rule) => {
     try {
+      const newStatus = rule.status === "Active" ? "Paused" : "Active";
+      setRules((prev) =>
+        prev.map((r) => (r.id === rule.id ? { ...r, status: newStatus } : r))
+      );
+
       const res = await fetch("/api/automated-sku", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -105,6 +111,7 @@ export default function AutoSkuPage() {
       });
 
       if (res.ok) {
+        showToast(`Rule "${rule.name}" is now ${newStatus}.`, "info");
         revalidator.revalidate();
       }
     } catch (err) {
@@ -152,11 +159,50 @@ export default function AutoSkuPage() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
+      const resJson = await res.json().catch(() => ({}));
+
+      if (res.ok && resJson.success !== false) {
+        showToast(
+          isEdit ? `Automation rule "${savedRule.name}" updated!` : `Automation rule "${savedRule.name}" created successfully!`,
+          "success"
+        );
+
+        if (isEdit) {
+          setRules((prev) =>
+            prev.map((r) =>
+              r.id === editingRule.id
+                ? { ...r, ...savedRule, skuConfiguration: savedRule.config }
+                : r
+            )
+          );
+        } else {
+          const newRuleObj = {
+            id: resJson.ruleId || `auto-${Date.now()}`,
+            name: savedRule.name,
+            description: savedRule.description,
+            status: "Active",
+            trigger: savedRule.trigger,
+            scope: savedRule.scope,
+            skuConfiguration: savedRule.config,
+            skusGenerated: 0,
+            runCount: 0,
+            lastRunAt: null,
+            lastRunStatus: "none",
+            createdAt: new Date().toISOString(),
+          };
+          setRules((prev) => [newRuleObj, ...prev]);
+        }
+
         revalidator.revalidate();
+        return true;
+      } else {
+        showToast(resJson.error || "Failed to save automation rule", "warning");
+        return false;
       }
     } catch (err) {
       console.warn("Failed to save automation rule:", err.message);
+      showToast("Error saving rule: " + err.message, "warning");
+      return false;
     }
   };
 
@@ -187,6 +233,8 @@ export default function AutoSkuPage() {
   const handleDeleteConfirm = async (id) => {
     try {
       setSelectedDeleteRule(null);
+      setRules((prev) => prev.filter((r) => r.id !== id));
+
       const res = await fetch("/api/automated-sku", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -194,6 +242,7 @@ export default function AutoSkuPage() {
       });
 
       if (res.ok) {
+        showToast("Automation rule deleted.", "info");
         revalidator.revalidate();
       }
     } catch (err) {

@@ -15,11 +15,11 @@ export default function PreviewStepSection({
   config = {},
   selection = { type: "ALL_PRODUCTS" },
   scopeCounts = {
-    totalProducts: 78,
-    totalVariants: 93,
-    variantsWithSku: 45,
-    variantsWithoutSku: 48,
-    estimatedCredits: 93,
+    totalProducts: 0,
+    totalVariants: 0,
+    variantsWithSku: 0,
+    variantsWithoutSku: 0,
+    estimatedCredits: 0,
   },
   creditsAvailable = 100,
   previewProducts = [],
@@ -241,7 +241,7 @@ export default function PreviewStepSection({
           <div>
             <span style={{ fontSize: "12px", color: "#6B7280", display: "block" }}>Variants with SKU</span>
             <span style={{ fontSize: "20px", fontWeight: 800, color: "#111827" }}>
-              {scopeCounts.variantsWithSku ?? 45}
+              {scopeCounts.variantsWithSku ?? 0}
             </span>
           </div>
         </div>
@@ -275,7 +275,7 @@ export default function PreviewStepSection({
           <div>
             <span style={{ fontSize: "12px", color: "#6B7280", display: "block" }}>Variants without SKU</span>
             <span style={{ fontSize: "20px", fontWeight: 800, color: "#111827" }}>
-              {scopeCounts.variantsWithoutSku ?? 48}
+              {scopeCounts.variantsWithoutSku ?? 0}
             </span>
           </div>
         </div>

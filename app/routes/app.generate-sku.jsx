@@ -62,8 +62,8 @@ export const loader = async ({ request }) => {
       scopeCounts = {
         totalProducts: counts.totalProducts,
         totalVariants: counts.totalVariants,
-        variantsWithSku: counts.variantsWithSku || Math.round(counts.totalVariants * 0.4),
-        variantsWithoutSku: counts.variantsWithoutSku || Math.round(counts.totalVariants * 0.6),
+        variantsWithSku: counts.variantsWithSku ?? 0,
+        variantsWithoutSku: counts.variantsWithoutSku ?? 0,
         estimatedCredits: counts.estimatedCredits || counts.totalVariants,
       };
     }
@@ -238,8 +238,8 @@ export default function GenerateSkuPage() {
         setScopeCounts({
           totalProducts: resJson.scopeCounts.totalProducts,
           totalVariants: resJson.scopeCounts.totalVariants,
-          variantsWithSku: resJson.scopeCounts.variantsWithSku ?? Math.round(resJson.scopeCounts.totalVariants * 0.4),
-          variantsWithoutSku: resJson.scopeCounts.variantsWithoutSku ?? Math.round(resJson.scopeCounts.totalVariants * 0.6),
+          variantsWithSku: resJson.scopeCounts.variantsWithSku ?? 0,
+          variantsWithoutSku: resJson.scopeCounts.variantsWithoutSku ?? 0,
           estimatedCredits: resJson.scopeCounts.estimatedCredits || resJson.scopeCounts.totalVariants,
         });
       }

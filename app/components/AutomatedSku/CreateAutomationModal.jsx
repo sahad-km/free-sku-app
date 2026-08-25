@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { CloseIcon, ZapIcon, SparkleIcon } from "./Icons";
+import { CloseIcon, ZapIcon, SparkleIcon, ShirtIcon, DocumentIcon, TagIcon, ClockIcon } from "./Icons";
 import { triggerOptions, scopeOptions } from "./mockData";
 import { showGlobalToast } from "../Common/Toast";
+import SkuLayoutSection from "../GenerateSKU/SkuLayoutSection";
+import ExtraComponentsSection from "../GenerateSKU/ExtraComponentsSection";
 
 export default function CreateAutomationModal({
   isOpen,
@@ -50,6 +52,54 @@ export default function CreateAutomationModal({
   const [incrementStep, setIncrementStep] = useState(
     initialRule && initialRule.config ? initialRule.config.incrementStep ?? 1 : 1
   );
+  const [randomDigits, setRandomDigits] = useState(
+    initialRule && initialRule.config ? initialRule.config.randomDigits ?? 4 : 4
+  );
+
+  // SKU Components & Character Length States for Extra Components
+  const [skuComponents, setSkuComponents] = useState(
+    initialRule && initialRule.config && Array.isArray(initialRule.config.skuComponents)
+      ? initialRule.config.skuComponents
+      : [{ id: "body_1", type: "body", label: "Body", name: "Body", value: "0001" }]
+  );
+
+  const [productNameChar, setProductNameChar] = useState(
+    initialRule && initialRule.config ? initialRule.config.productNameChar ?? "" : ""
+  );
+  const [variantNameChar, setVariantNameChar] = useState(
+    initialRule && initialRule.config ? initialRule.config.variantNameChar ?? "" : ""
+  );
+  const [productTypeChar, setProductTypeChar] = useState(
+    initialRule && initialRule.config ? initialRule.config.productTypeChar ?? "" : ""
+  );
+  const [vendorChar, setVendorChar] = useState(
+    initialRule && initialRule.config ? initialRule.config.vendorChar ?? "" : ""
+  );
+  const [variantOption1Char, setVariantOption1Char] = useState(
+    initialRule && initialRule.config ? initialRule.config.variantOption1Char ?? "" : ""
+  );
+  const [variantOption2Char, setVariantOption2Char] = useState(
+    initialRule && initialRule.config ? initialRule.config.variantOption2Char ?? "" : ""
+  );
+  const [variantOption3Char, setVariantOption3Char] = useState(
+    initialRule && initialRule.config ? initialRule.config.variantOption3Char ?? "" : ""
+  );
+
+  // Target Scope Value (for Collections, Vendors, or Tags)
+  const [scopeTargetValue, setScopeTargetValue] = useState(
+    initialRule && initialRule.config ? initialRule.config.scopeTargetValue ?? "" : ""
+  );
+
+  // Schedule Timeframe Options (For Scheduled trigger)
+  const [scheduleFrequency, setScheduleFrequency] = useState(
+    initialRule && initialRule.config ? initialRule.config.scheduleFrequency ?? "Weekly" : "Weekly"
+  );
+  const [scheduleDay, setScheduleDay] = useState(
+    initialRule && initialRule.config ? initialRule.config.scheduleDay ?? "Friday" : "Friday"
+  );
+  const [scheduleTime, setScheduleTime] = useState(
+    initialRule && initialRule.config ? initialRule.config.scheduleTime ?? "06:00 PM" : "06:00 PM"
+  );
 
   // Formatting & Overwrite Options
   const [overwriteExisting, setOverwriteExisting] = useState(
@@ -65,7 +115,73 @@ export default function CreateAutomationModal({
     initialRule && initialRule.config ? initialRule.config.capitalizeAll ?? true : true
   );
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleExtraComponentCharChange = (compType, label, val, setCharState) => {
+    setCharState(val);
+
+    setSkuComponents((prevComponents) => {
+      const existingIndex = prevComponents.findIndex(
+        (c) => c.type === compType || (compType === "productVendor" && c.type === "vendor")
+      );
+
+      if (!val) {
+        return prevComponents.filter(
+          (c) => c.type !== compType && !(compType === "productVendor" && c.type === "vendor")
+        );
+      }
+
+      const sampleValues = {
+        productTitle: "Snowboard",
+        variantTitle: "Black/L",
+        productType: "Snowboard",
+        productVendor: "Burton",
+        variantOption1: "Large",
+        variantOption2: "Black",
+        variantOption3: "Pro",
+      };
+
+      const sampleVal = sampleValues[compType] || "VAL";
+
+      if (existingIndex >= 0) {
+        const updated = [...prevComponents];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          charLength: val,
+        };
+        return updated;
+      } else {
+        const newComp = {
+          id: `${compType}_${Date.now()}`,
+          type: compType,
+          label: label,
+          name: label,
+          value: sampleVal,
+          charLength: val,
+        };
+
+        return [...prevComponents, newComp];
+      }
+    });
+  };
+
+  const handleRemoveComponentFromLayout = (compType, compId) => {
+    if (compType === "body") {
+      showGlobalToast("Body component is required in the SKU layout.", "warning");
+      return;
+    }
+    setSkuComponents((prev) => prev.filter((c) => c.id !== compId));
+
+    if (compType === "productTitle" || compType === "productName") setProductNameChar("");
+    if (compType === "variantTitle" || compType === "variantName") setVariantNameChar("");
+    if (compType === "productType" || compType === "type") setProductTypeChar("");
+    if (compType === "productVendor" || compType === "vendor") setVendorChar("");
+    if (compType === "variantOption1" || compType === "option1") setVariantOption1Char("");
+    if (compType === "variantOption2" || compType === "option2") setVariantOption2Char("");
+    if (compType === "variantOption3" || compType === "option3") setVariantOption3Char("");
+  };
 
   // Dynamic Live SKU Format Calculation
   const computePreviewSku = () => {
@@ -73,25 +189,58 @@ export default function CreateAutomationModal({
     if (separator === "none") sep = "";
     else if (separator === "custom") sep = customSeparator || "";
 
-    let bodyStr = String(startNumber).padStart(parseInt(numberPadding, 10) || 4, "0");
-    if (bodyNumberType === "random") bodyStr = "9A2F";
-    else if (bodyNumberType === "productId") bodyStr = "7890";
-    else if (bodyNumberType === "continue") bodyStr = String((parseInt(startNumber, 10) || 1) + 10).padStart(parseInt(numberPadding, 10) || 4, "0");
-
     const parts = [];
-    if (prefix.trim()) parts.push(prefix.trim());
-    parts.push(bodyStr);
-    if (suffix.trim()) parts.push(suffix.trim());
+
+    if (prefix && prefix.trim()) parts.push(prefix.trim());
+
+    (skuComponents || []).forEach((comp) => {
+      let val = "";
+      if (comp.type === "body") {
+        if (bodyNumberType === "disabled") val = "";
+        else if (bodyNumberType === "random") val = "9A2F";
+        else if (bodyNumberType === "productId") val = "7890";
+        else if (bodyNumberType === "variantId") val = "4567";
+        else if (bodyNumberType === "continue") val = String((parseInt(startNumber, 10) || 1) + 10).padStart(parseInt(numberPadding, 10) || 4, "0");
+        else val = String(startNumber).padStart(parseInt(numberPadding, 10) || 4, "0");
+      } else if (comp.type === "productTitle" || comp.type === "productName") {
+        val = "Snowboard";
+      } else if (comp.type === "variantTitle" || comp.type === "variantName") {
+        val = "Black/L";
+      } else if (comp.type === "productType" || comp.type === "type") {
+        val = "Snowboard";
+      } else if (comp.type === "productVendor" || comp.type === "vendor") {
+        val = "Burton";
+      } else if (comp.type === "variantOption1" || comp.type === "option1") {
+        val = "Large";
+      } else if (comp.type === "variantOption2" || comp.type === "option2") {
+        val = "Black";
+      } else if (comp.type === "variantOption3" || comp.type === "option3") {
+        val = "Pro";
+      } else {
+        val = comp.value || "";
+      }
+
+      if (val) {
+        const charLen = comp.charLength;
+        if (charLen && charLen !== "full") {
+          const num = parseInt(charLen, 10);
+          if (!isNaN(num) && num > 0) val = val.substring(0, num);
+        }
+        parts.push(val);
+      }
+    });
+
+    if (suffix && suffix.trim()) parts.push(suffix.trim());
 
     let rawSku = parts.join(sep);
     if (removeSpaces) rawSku = rawSku.replace(/\s+/g, "");
     if (capitalizeAll) rawSku = rawSku.toUpperCase();
-    return rawSku;
+    return rawSku || "NO-SKU-FORMAT";
   };
 
   const previewSku = computePreviewSku();
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 1 && !ruleName.trim()) {
       showGlobalToast("Rule name is required.", "warning");
       return;
@@ -99,39 +248,72 @@ export default function CreateAutomationModal({
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Final Save with complete configuration payload
-      onSaveRule({
-        id: initialRule ? initialRule.id : `auto-${Date.now()}`,
-        name: ruleName.trim(),
-        description: ruleDescription.trim() || "Automatically generate SKU for matching products.",
-        scope: selectedScope,
-        scopeSubtext: selectedScope === "All products" ? "All collections" : "Selected scope",
-        status: "Active",
-        trigger: selectedTrigger,
-        lastRunDate: "Just created",
-        lastRunTime: "Now",
-        lastRunStatus: "none",
-        skusGenerated: 0,
-        skusGeneratedSubtext: "Today",
-        iconType: "shirt",
-        iconBg: "bg-purple-light",
-        iconColor: "#7C3AED",
-        config: {
-          prefix,
-          suffix,
-          separator,
-          customSeparator,
-          bodyNumberType,
-          startNumber: parseInt(startNumber, 10) || 1,
-          numberPadding: parseInt(numberPadding, 10) || 4,
-          incrementStep: parseInt(incrementStep, 10) || 1,
-          overwriteExisting,
-          individualVariantNumbering,
-          removeSpaces,
-          capitalizeAll,
-        },
-      });
-      onClose();
+      setIsSubmitting(true);
+      try {
+        const formattedTrigger = selectedTrigger.includes("Scheduled")
+          ? `Scheduled (${scheduleFrequency === "Weekly" ? `Every ${scheduleDay.slice(0, 3)}` : scheduleFrequency} ${scheduleTime})`
+          : selectedTrigger;
+
+        const subtext = selectedScope === "All products"
+          ? "All collections"
+          : scopeTargetValue
+          ? scopeTargetValue
+          : "Selected scope";
+
+        // Final Save with complete configuration payload
+        const success = await onSaveRule({
+          id: initialRule ? initialRule.id : `auto-${Date.now()}`,
+          name: ruleName.trim(),
+          description: ruleDescription.trim() || "Automatically generate SKU for matching products.",
+          scope: selectedScope,
+          scopeSubtext: subtext,
+          status: "Active",
+          trigger: formattedTrigger,
+          lastRunDate: "Just created",
+          lastRunTime: "Now",
+          lastRunStatus: "none",
+          skusGenerated: 0,
+          skusGeneratedSubtext: "Today",
+          iconType: "shirt",
+          iconBg: "bg-purple-light",
+          iconColor: "#7C3AED",
+          config: {
+            prefix,
+            suffix,
+            separator,
+            customSeparator,
+            bodyNumberType,
+            startNumber: parseInt(startNumber, 10) || 1,
+            numberPadding: parseInt(numberPadding, 10) || 4,
+            incrementStep: parseInt(incrementStep, 10) || 1,
+            randomDigits: parseInt(randomDigits, 10) || 4,
+            productNameChar,
+            variantNameChar,
+            productTypeChar,
+            vendorChar,
+            variantOption1Char,
+            variantOption2Char,
+            variantOption3Char,
+            skuComponents,
+            scheduleFrequency,
+            scheduleDay,
+            scheduleTime,
+            scopeTargetValue,
+            overwriteExisting,
+            individualVariantNumbering,
+            removeSpaces,
+            capitalizeAll,
+          },
+        });
+
+        if (success !== false) {
+          onClose();
+        }
+      } catch (err) {
+        console.warn("Error saving rule:", err.message);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -194,14 +376,14 @@ export default function CreateAutomationModal({
                 />
               </div>
 
-              <div className="field-group">
+              <div className="field-group mb-16">
                 <label className="field-label">Select Trigger</label>
                 <div className="triggers-selection-grid">
                   {triggerOptions.map((trig) => (
                     <div
                       key={trig.id}
                       className={`trigger-option-card ${
-                        selectedTrigger === trig.title ? "card-selected" : ""
+                        selectedTrigger === trig.title || selectedTrigger.startsWith(trig.title) ? "card-selected" : ""
                       }`}
                       onClick={() => setSelectedTrigger(trig.title)}
                     >
@@ -214,39 +396,231 @@ export default function CreateAutomationModal({
                   ))}
                 </div>
               </div>
+
+              {/* Schedule Timeframe Options (If Scheduled Trigger is Selected) */}
+              {selectedTrigger.includes("Scheduled") && (
+                <div
+                  className="form-section-card mb-16"
+                  style={{
+                    backgroundColor: "#F9FAFB",
+                    padding: "16px",
+                    borderRadius: "10px",
+                    border: "1px solid #E5E7EB",
+                  }}
+                >
+                  <h5 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", margin: "0 0 12px 0", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <ClockIcon size={16} color="#4F46E5" />
+                    Schedule Timeframe & Recurrence
+                  </h5>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: scheduleFrequency === "Weekly" ? "1fr 1fr 1fr" : "1fr 1fr",
+                      gap: "12px",
+                    }}
+                  >
+                    <div className="field-group">
+                      <label className="field-label">Frequency</label>
+                      <select
+                        className="select-input"
+                        value={scheduleFrequency}
+                        onChange={(e) => setScheduleFrequency(e.target.value)}
+                      >
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                      </select>
+                    </div>
+
+                    {scheduleFrequency === "Weekly" && (
+                      <div className="field-group">
+                        <label className="field-label">Day of Week</label>
+                        <select
+                          className="select-input"
+                          value={scheduleDay}
+                          onChange={(e) => setScheduleDay(e.target.value)}
+                        >
+                          <option value="Monday">Monday</option>
+                          <option value="Tuesday">Tuesday</option>
+                          <option value="Wednesday">Wednesday</option>
+                          <option value="Thursday">Thursday</option>
+                          <option value="Friday">Friday</option>
+                          <option value="Saturday">Saturday</option>
+                          <option value="Sunday">Sunday</option>
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="field-group">
+                      <label className="field-label">Time of Day</label>
+                      <select
+                        className="select-input"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      >
+                        <option value="12:00 AM">12:00 AM (Midnight)</option>
+                        <option value="01:00 AM">01:00 AM</option>
+                        <option value="02:00 AM">02:00 AM</option>
+                        <option value="03:00 AM">03:00 AM</option>
+                        <option value="04:00 AM">04:00 AM</option>
+                        <option value="05:00 AM">05:00 AM</option>
+                        <option value="06:00 AM">06:00 AM</option>
+                        <option value="07:00 AM">07:00 AM</option>
+                        <option value="08:00 AM">08:00 AM</option>
+                        <option value="09:00 AM">09:00 AM</option>
+                        <option value="10:00 AM">10:00 AM</option>
+                        <option value="11:00 AM">11:00 AM</option>
+                        <option value="12:00 PM">12:00 PM (Noon)</option>
+                        <option value="01:00 PM">01:00 PM</option>
+                        <option value="02:00 PM">02:00 PM</option>
+                        <option value="03:00 PM">03:00 PM</option>
+                        <option value="04:00 PM">04:00 PM</option>
+                        <option value="05:00 PM">05:00 PM</option>
+                        <option value="06:00 PM">06:00 PM</option>
+                        <option value="07:00 PM">07:00 PM</option>
+                        <option value="08:00 PM">08:00 PM</option>
+                        <option value="09:00 PM">09:00 PM</option>
+                        <option value="10:00 PM">10:00 PM</option>
+                        <option value="11:00 PM">11:00 PM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Step 2: Target Scope */}
+          {/* Step 2: Target Products (Applies To) */}
           {currentStep === 2 && (
             <div className="wizard-step-container">
-              <h4 className="wizard-step-title">2. Choose Target Scope</h4>
+              <h4 className="wizard-step-title">2. Which Products Should This Rule Apply To?</h4>
               <p className="wizard-step-desc">
-                Specify which products, collections, or vendors will be affected by this automation rule.
+                Select which products in your store catalog will automatically receive SKUs when this rule runs.
               </p>
 
-              <div className="scope-selection-grid">
-                {scopeOptions.map((sc) => (
-                  <div
-                    key={sc.id}
-                    className={`scope-option-card ${
-                      selectedScope === sc.label ? "card-selected" : ""
-                    }`}
-                    onClick={() => setSelectedScope(sc.label)}
-                  >
-                    <div className="scope-card-radio">
-                      <div
-                        className={`custom-radio ${
-                          selectedScope === sc.label ? "radio-checked" : ""
-                        }`}
-                      >
-                        {selectedScope === sc.label && <div className="radio-inner-dot" />}
-                      </div>
-                      <span className="scope-card-label">{sc.label}</span>
+              <div className="scope-selection-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                {/* 1. All products */}
+                <div
+                  className={`scope-option-card ${selectedScope === "All products" ? "card-selected" : ""}`}
+                  onClick={() => setSelectedScope("All products")}
+                  style={{ padding: "16px", cursor: "pointer" }}
+                >
+                  <div className="scope-card-radio" style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                    <div className={`custom-radio ${selectedScope === "All products" ? "radio-checked" : ""}`}>
+                      {selectedScope === "All products" && <div className="radio-inner-dot" />}
                     </div>
+                    <ShirtIcon size={16} color="#7C3AED" />
+                    <span className="scope-card-label" style={{ fontWeight: 700, fontSize: "14px" }}>All Products in Store</span>
                   </div>
-                ))}
+                  <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>
+                    Applies automatically to every single product and variant in your entire store catalog.
+                  </p>
+                </div>
+
+                {/* 2. Specific collections */}
+                <div
+                  className={`scope-option-card ${selectedScope === "Specific collections" ? "card-selected" : ""}`}
+                  onClick={() => setSelectedScope("Specific collections")}
+                  style={{ padding: "16px", cursor: "pointer" }}
+                >
+                  <div className="scope-card-radio" style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                    <div className={`custom-radio ${selectedScope === "Specific collections" ? "radio-checked" : ""}`}>
+                      {selectedScope === "Specific collections" && <div className="radio-inner-dot" />}
+                    </div>
+                    <DocumentIcon size={16} color="#2563EB" />
+                    <span className="scope-card-label" style={{ fontWeight: 700, fontSize: "14px" }}>Products in Specific Collections</span>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>
+                    Applies only to products that belong to selected Shopify collections.
+                  </p>
+                </div>
+
+                {/* 3. Specific vendors */}
+                <div
+                  className={`scope-option-card ${selectedScope === "Specific vendors" ? "card-selected" : ""}`}
+                  onClick={() => setSelectedScope("Specific vendors")}
+                  style={{ padding: "16px", cursor: "pointer" }}
+                >
+                  <div className="scope-card-radio" style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                    <div className={`custom-radio ${selectedScope === "Specific vendors" ? "radio-checked" : ""}`}>
+                      {selectedScope === "Specific vendors" && <div className="radio-inner-dot" />}
+                    </div>
+                    <ShirtIcon size={16} color="#059669" />
+                    <span className="scope-card-label" style={{ fontWeight: 700, fontSize: "14px" }}>Products from Specific Vendors</span>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>
+                    Applies only to products matching specific vendor or brand names.
+                  </p>
+                </div>
+
+                {/* 4. Product tags */}
+                <div
+                  className={`scope-option-card ${selectedScope === "Product tags" || selectedScope === "Products with tag" ? "card-selected" : ""}`}
+                  onClick={() => setSelectedScope("Product tags")}
+                  style={{ padding: "16px", cursor: "pointer" }}
+                >
+                  <div className="scope-card-radio" style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                    <div className={`custom-radio ${selectedScope === "Product tags" || selectedScope === "Products with tag" ? "radio-checked" : ""}`}>
+                      {(selectedScope === "Product tags" || selectedScope === "Products with tag") && <div className="radio-inner-dot" />}
+                    </div>
+                    <TagIcon size={16} color="#D97706" />
+                    <span className="scope-card-label" style={{ fontWeight: 700, fontSize: "14px" }}>Products with Specific Tags</span>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>
+                    Applies only to products tagged with a specific product tag in Shopify.
+                  </p>
+                </div>
               </div>
+
+              {/* Helper Inputs for Selected Option */}
+              {selectedScope === "Specific collections" && (
+                <div className="field-group mt-16" style={{ backgroundColor: "#F9FAFB", padding: "14px", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
+                  <label className="field-label" style={{ fontWeight: 600 }}>Enter Target Collection Names (comma-separated)</label>
+                  <input
+                    type="text"
+                    className="text-input"
+                    placeholder="e.g. Snowboards, Accessories, Summer Sale"
+                    value={scopeTargetValue}
+                    onChange={(e) => setScopeTargetValue(e.target.value)}
+                  />
+                  <span style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px", display: "block" }}>
+                    Only products inside these collections will automatically get SKUs.
+                  </span>
+                </div>
+              )}
+
+              {selectedScope === "Specific vendors" && (
+                <div className="field-group mt-16" style={{ backgroundColor: "#F9FAFB", padding: "14px", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
+                  <label className="field-label" style={{ fontWeight: 600 }}>Enter Target Vendor Names (comma-separated)</label>
+                  <input
+                    type="text"
+                    className="text-input"
+                    placeholder="e.g. Burton, Nike, Adidas"
+                    value={scopeTargetValue}
+                    onChange={(e) => setScopeTargetValue(e.target.value)}
+                  />
+                  <span style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px", display: "block" }}>
+                    Only products from these vendors/brands will automatically get SKUs.
+                  </span>
+                </div>
+              )}
+
+              {(selectedScope === "Product tags" || selectedScope === "Products with tag") && (
+                <div className="field-group mt-16" style={{ backgroundColor: "#F9FAFB", padding: "14px", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
+                  <label className="field-label" style={{ fontWeight: 600 }}>Enter Target Product Tag</label>
+                  <input
+                    type="text"
+                    className="text-input"
+                    placeholder="e.g. VIP, new-arrival, summer-2025"
+                    value={scopeTargetValue}
+                    onChange={(e) => setScopeTargetValue(e.target.value)}
+                  />
+                  <span style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px", display: "block" }}>
+                    Only products with this exact tag assigned in Shopify will automatically get SKUs.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -255,7 +629,7 @@ export default function CreateAutomationModal({
             <div className="wizard-step-container">
               <h4 className="wizard-step-title">3. Configure SKU Rule Structure</h4>
               <p className="wizard-step-desc">
-                Customize prefix, sequence numbering, separator, and formatting options for generated SKUs.
+                Customize prefix, sequence numbering, separator, SKU layout, and extra components for generated SKUs.
               </p>
 
               {/* 1. Basic Structure: Prefix, Suffix, Separator */}
@@ -327,13 +701,15 @@ export default function CreateAutomationModal({
                     onChange={(e) => setBodyNumberType(e.target.value)}
                   >
                     <option value="sequential">Sequential Numbering (0001, 0002...)</option>
-                    <option value="random">Random Alphanumeric Code (9A2F)</option>
-                    <option value="productId">Product ID Based</option>
                     <option value="continue">Continue Previous Store Sequence</option>
+                    <option value="disabled">Disabled (No Number Component)</option>
+                    <option value="productId">Product ID Based</option>
+                    <option value="variantId">Variant ID Based</option>
+                    <option value="random">Random Alphanumeric Code (9A2F)</option>
                   </select>
                 </div>
 
-                {bodyNumberType !== "random" && bodyNumberType !== "productId" && (
+                {(bodyNumberType === "sequential" || bodyNumberType === "continue") && (
                   <div className="number-settings-row">
                     <div className="field-group flex-1">
                       <label className="field-label">Start Number</label>
@@ -373,9 +749,54 @@ export default function CreateAutomationModal({
                     </div>
                   </div>
                 )}
+
+                {bodyNumberType === "disabled" && (
+                  <div style={{ backgroundColor: "#F9FAFB", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E5E7EB", marginTop: "12px" }}>
+                    <span style={{ fontSize: "13px", color: "#374151" }}>
+                      Body number is disabled. SKUs will be generated using only Prefix, Suffix, Layout, and Extra components without a body number.
+                    </span>
+                  </div>
+                )}
+
+                {(bodyNumberType === "productId" || bodyNumberType === "variantId") && (
+                  <div style={{ backgroundColor: "#F9FAFB", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E5E7EB", marginTop: "12px" }}>
+                    <span style={{ fontSize: "13px", color: "#374151" }}>
+                      Only the numeric digits of the Shopify {bodyNumberType === "productId" ? "Product ID" : "Variant ID"} will be used as the body number.
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* 3. Formatting & Processing Toggles */}
+              {/* 3. SKU Layout Section */}
+              <div className="mb-16">
+                <SkuLayoutSection
+                  skuComponents={skuComponents}
+                  setSkuComponents={setSkuComponents}
+                  onRemoveComponent={handleRemoveComponentFromLayout}
+                />
+              </div>
+
+              {/* 4. Extra Components Section */}
+              <div className="mb-16">
+                <ExtraComponentsSection
+                  productNameChar={productNameChar}
+                  onProductNameCharChange={(val) => handleExtraComponentCharChange("productTitle", "Product Name", val, setProductNameChar)}
+                  variantNameChar={variantNameChar}
+                  onVariantNameCharChange={(val) => handleExtraComponentCharChange("variantTitle", "Variant Name", val, setVariantNameChar)}
+                  productTypeChar={productTypeChar}
+                  onProductTypeCharChange={(val) => handleExtraComponentCharChange("productType", "Product Type", val, setProductTypeChar)}
+                  vendorChar={vendorChar}
+                  onVendorCharChange={(val) => handleExtraComponentCharChange("productVendor", "Vendor", val, setVendorChar)}
+                  variantOption1Char={variantOption1Char}
+                  onVariantOption1CharChange={(val) => handleExtraComponentCharChange("variantOption1", "Variant Option 1", val, setVariantOption1Char)}
+                  variantOption2Char={variantOption2Char}
+                  onVariantOption2CharChange={(val) => handleExtraComponentCharChange("variantOption2", "Variant Option 2", val, setVariantOption2Char)}
+                  variantOption3Char={variantOption3Char}
+                  onVariantOption3CharChange={(val) => handleExtraComponentCharChange("variantOption3", "Variant Option 3", val, setVariantOption3Char)}
+                />
+              </div>
+
+              {/* 5. Formatting & Processing Toggles */}
               <div className="form-section-card mb-16">
                 <h5 className="form-section-title">Processing & Formatting Options</h5>
                 
@@ -461,9 +882,15 @@ export default function CreateAutomationModal({
                   <span className="review-val">
                     {bodyNumberType === "sequential"
                       ? `Sequential (Start: ${startNumber}, Padding: ${numberPadding} digits)`
+                      : bodyNumberType === "disabled"
+                      ? "Disabled (No body number)"
+                      : bodyNumberType === "variantId"
+                      ? "Variant ID Based"
+                      : bodyNumberType === "productId"
+                      ? "Product ID Based"
                       : bodyNumberType === "random"
                       ? "Random Alphanumeric"
-                      : "Product ID Based"}
+                      : "Continue Store Sequence"}
                   </span>
                 </div>
                 <div className="review-row">
@@ -493,8 +920,16 @@ export default function CreateAutomationModal({
           <button className="btn-modal-cancel" onClick={onClose} type="button">
             Cancel
           </button>
-          <button className="btn-modal-submit" onClick={handleNext} type="button">
-            {currentStep === 4 ? (initialRule ? "Save Changes" : "Save Automation") : "Next →"}
+          <button className="btn-modal-submit" onClick={handleNext} disabled={isSubmitting} type="button">
+            {isSubmitting ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                <span className="btn-spinner" /> Saving...
+              </span>
+            ) : currentStep === 4 ? (
+              initialRule ? "Save Changes" : "Save Automation"
+            ) : (
+              "Next →"
+            )}
           </button>
         </div>
       </div>
