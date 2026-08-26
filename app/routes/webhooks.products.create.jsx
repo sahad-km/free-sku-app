@@ -3,31 +3,19 @@ import { addAutomatedSkuJob } from "../services/queue/skuQueueService.server";
 import { evaluateAutomatedSkuForProduct } from "../services/sku/automatedSkuService.server";
 
 export const action = async ({ request }) => {
-  const clonedReq = request.clone();
-  let shop, topic, payload;
-
+  let authResult;
   try {
-    const authResult = await authenticate.webhook(request);
-    shop = authResult.shop;
-    topic = authResult.topic;
-    payload = authResult.payload;
-    console.log(`[Webhook] Received ${topic} webhook for shop ${shop}`);
-  } catch (err) {
-    const errStatus = err instanceof Response ? err.status : undefined;
-    const errText = err instanceof Response ? err.statusText : err?.message || String(err);
-    console.warn(`[Webhook Exception]: Auth validation failed (${errStatus || "Error"}: ${errText})`);
-
-    // Fallback: Parse headers and payload from cloned request for dev resiliency
-    try {
-      shop = clonedReq.headers.get("x-shopify-shop-domain");
-      topic = clonedReq.headers.get("x-shopify-topic") || "products/create";
-      payload = await clonedReq.json();
-      console.log(`[Webhook Fallback] Processing webhook for shop ${shop} (Product: ${payload?.id || payload?.admin_graphql_api_id})`);
-    } catch (parseErr) {
-      console.error("[Webhook Exception]: Failed to parse payload from request:", parseErr.message);
-      return new Response(null, { status: 400 });
+    authResult = await authenticate.webhook(request);
+  } catch (error) {
+    if (error instanceof Response) {
+      return error;
     }
+    console.error("[Webhook Auth Error - products/create]:", error);
+    return new Response("Unauthorized", { status: 401 });
   }
+
+  const { shop, topic, payload } = authResult;
+  console.log(`[Webhook] Received ${topic} webhook for shop ${shop}`);
 
   if (!shop || !payload) {
     return new Response(null, { status: 400 });
@@ -36,7 +24,7 @@ export const action = async ({ request }) => {
   const productId = payload?.admin_graphql_api_id || (payload?.id ? `gid://shopify/Product/${payload.id}` : null);
   if (!productId) return new Response(null, { status: 200 });
 
-  const eventId = clonedReq.headers.get("x-shopify-webhook-id") || `evt-${Date.now()}`;
+  const eventId = request.headers.get("x-shopify-webhook-id") || `evt-${Date.now()}`;
 
   const queueRes = await addAutomatedSkuJob({
     shopDomain: shop,
