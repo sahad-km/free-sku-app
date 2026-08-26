@@ -197,21 +197,31 @@ export async function toggleAutomationRuleStatus({ admin, shopDomain, ruleId }) 
 /**
  * Helper: Check if product matches scope
  */
-export function doesProductMatchScope(product, scope) {
+export function doesProductMatchScope(product, scope, config = {}) {
   if (!scope || scope === "All products") return true;
 
   const scopeLower = scope.toLowerCase();
-
-  if (scopeLower.includes("collection")) {
-    return true;
-  }
+  const targetValue = (config.scopeTargetValue || "").toLowerCase().trim();
+  const targetList = targetValue
+    ? targetValue.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
 
   if (scopeLower.includes("vendor")) {
-    return Boolean(product.vendor);
+    if (!product.vendor) return false;
+    if (targetList.length === 0) return true;
+    const prodVendor = product.vendor.toLowerCase();
+    return targetList.some((t) => prodVendor.includes(t));
   }
 
   if (scopeLower.includes("tag")) {
-    return Array.isArray(product.tags) && product.tags.length > 0;
+    if (!Array.isArray(product.tags) || product.tags.length === 0) return false;
+    if (targetList.length === 0) return true;
+    const prodTags = product.tags.map((t) => t.toLowerCase());
+    return targetList.some((t) => prodTags.some((pt) => pt.includes(t)));
+  }
+
+  if (scopeLower.includes("collection")) {
+    return true;
   }
 
   return true;
@@ -319,7 +329,7 @@ export async function evaluateAutomatedSkuForProduct({
 
   for (const rule of activeRules) {
     if (!doesRuleMatchTrigger(rule, triggerType)) continue;
-    if (!doesProductMatchScope(product, rule.scope)) continue;
+    if (!doesProductMatchScope(product, rule.scope, rule.skuConfiguration || {})) continue;
 
     const config = rule.skuConfiguration || {};
     const overwriteExisting = config.overwriteExisting ?? true;
