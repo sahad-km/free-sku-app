@@ -12,9 +12,15 @@ import { syncAutomationWebhooks } from "../shopify/webhookSubscriptionService.se
 /**
  * 1. Get All Automation Rules & Summary KPIs for a Store
  */
-export async function getAutomationRules({ shopDomain, search = "", statusTab = "All rules" }) {
+export async function getAutomationRules({ admin, shopDomain, search = "", statusTab = "All rules" }) {
   if (!shopDomain) throw new Error("Unauthorized shop domain");
   await connectMongoose();
+
+  if (admin) {
+    syncAutomationWebhooks({ admin, shopDomain }).catch((e) =>
+      console.warn("[Automated SKU Sync Warning]:", e.message)
+    );
+  }
 
   const query = { shopDomain };
 
@@ -230,15 +236,21 @@ export function doesProductMatchScope(product, scope, config = {}) {
 /**
  * Helper: Check if active rule matches incoming trigger event type
  */
-export function doesRuleMatchTrigger(rule, triggerType) {
+export function doesRuleMatchTrigger(rule, triggerType, hasUnassignedVariants = false) {
   if (!triggerType || triggerType === "RUN_NOW" || triggerType === "Manual" || triggerType === "Run Now") return true;
 
   const ruleTrig = (rule.trigger || "New product added").toLowerCase();
   const incomingTrig = triggerType.toLowerCase();
 
-  // "New product added" rules should ONLY fire on product creation webhooks
+  if (ruleTrig.includes("scheduled")) {
+    return incomingTrig.includes("scheduled") || incomingTrig.includes("run_now") || incomingTrig.includes("manual");
+  }
+
+  // "New product added" rules fire on creation webhooks, or update webhooks if variants lack SKUs
   if (ruleTrig.includes("new product") || ruleTrig.includes("create")) {
-    return incomingTrig.includes("create") || incomingTrig.includes("new product");
+    if (incomingTrig.includes("create") || incomingTrig.includes("new product")) return true;
+    if (incomingTrig.includes("update") && hasUnassignedVariants) return true;
+    return false;
   }
 
   // "Product updated" rules fire on update webhooks
@@ -246,7 +258,6 @@ export function doesRuleMatchTrigger(rule, triggerType) {
     return incomingTrig.includes("update");
   }
 
-  // "Collection" / "Vendor" rules fire on collection or update webhooks
   if (ruleTrig.includes("collection") || ruleTrig.includes("vendor")) {
     return incomingTrig.includes("collection") || incomingTrig.includes("update");
   }
@@ -269,16 +280,25 @@ export async function evaluateAutomatedSkuForProduct({
   }
 
   await connectMongoose();
+  const cleanShopDomain = (shopDomain || "").toLowerCase().trim();
 
-  // Load active automation rules for this store
+  console.log(`[Automated SKU Engine] Evaluating for shop "${cleanShopDomain}" (Product ID: ${productId}, Trigger: ${triggerType})`);
+
+  // Load active automation rules for this store (case-insensitive shopDomain match)
   const activeRules = await AutomationRule.find({
-    shopDomain,
+    $or: [
+      { shopDomain: cleanShopDomain },
+      { shopDomain: { $regex: new RegExp(`^${cleanShopDomain.replace(/\./g, "\\.")}$`, "i") } }
+    ],
     status: "Active",
   }).lean();
 
   if (activeRules.length === 0) {
+    console.log(`[Automated SKU Engine] No active automation rules found for shop "${cleanShopDomain}".`);
     return { success: true, processed: 0, reason: "No active automation rules found" };
   }
+
+  console.log(`[Automated SKU Engine] Found ${activeRules.length} active rule(s) for shop "${cleanShopDomain}".`);
 
   // Normalize Product GraphQL GID
   const normalizedProductId = productId.startsWith("gid://")
@@ -286,7 +306,7 @@ export async function evaluateAutomatedSkuForProduct({
     : `gid://shopify/Product/${productId}`;
 
   // Fetch product & variants from Shopify
-  const productResponse = await admin.graphql(`
+  const fetchProductQuery = `
     query getProductForAutomation($id: ID!) {
       product(id: $id) {
         id
@@ -307,28 +327,48 @@ export async function evaluateAutomatedSkuForProduct({
         }
       }
     }
-  `, {
+  `;
+
+  let productResponse = await admin.graphql(fetchProductQuery, {
     variables: { id: normalizedProductId },
   });
 
-  const productJson = await productResponse.json();
-  const product = productJson?.data?.product;
+  let productJson = await productResponse.json();
+  let product = productJson?.data?.product;
 
   if (!product) {
+    console.warn(`[Automated SKU Engine] Product ${productId} not found on Shopify.`);
     return { success: false, reason: `Product ${productId} not found on Shopify` };
   }
 
-  const variants = product.variants?.nodes || [];
+  let variants = product.variants?.nodes || [];
+
+  // If variants not ready yet (Shopify variant creation delay), retry after 1500ms delay
   if (variants.length === 0) {
+    console.log(`[Automated SKU Engine] 0 variants found for ${productId}. Retrying fetch in 1500ms...`);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    productResponse = await admin.graphql(fetchProductQuery, {
+      variables: { id: normalizedProductId },
+    });
+    productJson = await productResponse.json();
+    product = productJson?.data?.product;
+    variants = product?.variants?.nodes || [];
+    console.log(`[Automated SKU Engine] Retry completed. Found ${variants.length} variant(s).`);
+  }
+
+  if (variants.length === 0) {
+    console.warn(`[Automated SKU Engine] No variants found on product ${productId}.`);
     return { success: true, processed: 0, reason: "No variants found on product" };
   }
+
+  const hasUnassignedVariants = variants.some((v) => !v.sku || v.sku.trim() === "");
 
   let totalSkusGenerated = 0;
   let totalSkipped = 0;
   let totalFailed = 0;
 
   for (const rule of activeRules) {
-    if (!doesRuleMatchTrigger(rule, triggerType)) continue;
+    if (!doesRuleMatchTrigger(rule, triggerType, hasUnassignedVariants)) continue;
     if (!doesProductMatchScope(product, rule.scope, rule.skuConfiguration || {})) continue;
 
     const config = rule.skuConfiguration || {};

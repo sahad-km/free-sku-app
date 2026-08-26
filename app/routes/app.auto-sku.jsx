@@ -19,11 +19,11 @@ import "../styles/app.auto-sku.css";
 import "../styles/app.generate-sku.css";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shopDomain = session?.shop;
 
   try {
-    const data = await getAutomationRules({ shopDomain });
+    const data = await getAutomationRules({ admin, shopDomain });
     return {
       rules: data.rules || [],
       summary: data.summary || {

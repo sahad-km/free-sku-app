@@ -23,6 +23,14 @@ api_version = "2026-07"
   ]
   uri = "/webhooks/compliance"
 
+  [[webhooks.subscriptions]]
+  topics = [ "products/create" ]
+  uri = "/webhooks/products/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/update" ]
+  uri = "/webhooks/products/update"
+
 
 [build]
 automatically_update_urls_on_dev = true

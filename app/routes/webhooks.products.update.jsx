@@ -1,5 +1,4 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { addAutomatedSkuJob } from "../services/queue/skuQueueService.server";
 import { evaluateAutomatedSkuForProduct } from "../services/sku/automatedSkuService.server";
 
 export const action = async ({ request }) => {
@@ -15,7 +14,7 @@ export const action = async ({ request }) => {
   }
 
   const { shop, topic, payload } = authResult;
-  console.log(`[Webhook] Received ${topic} webhook for shop ${shop}`);
+  console.log(`[Webhook PRODUCTS_UPDATE] Received ${topic} webhook for shop ${shop}`);
 
   if (!shop || !payload) {
     return new Response(null, { status: 400 });
@@ -24,26 +23,33 @@ export const action = async ({ request }) => {
   const productId = payload?.admin_graphql_api_id || (payload?.id ? `gid://shopify/Product/${payload.id}` : null);
   if (!productId) return new Response(null, { status: 200 });
 
-  const eventId = request.headers.get("x-shopify-webhook-id") || `evt-${Date.now()}`;
+  try {
+    let admin = authResult?.admin;
+    if (!admin) {
+      const cleanShop = shop.toLowerCase().trim();
+      const unauthResult = await unauthenticated.admin(shop).catch(() => null) ||
+                           await unauthenticated.admin(cleanShop).catch(() => null);
+      admin = unauthResult?.admin;
+    }
 
-  const queueRes = await addAutomatedSkuJob({
-    shopDomain: shop,
-    productId,
-    triggerType: "Product updated",
-    eventId,
-  });
-
-  if (!queueRes.isQueue) {
-    // Fallback in-process execution when Redis is unconfigured
-    const { admin } = await unauthenticated.admin(shop);
     if (admin) {
       evaluateAutomatedSkuForProduct({
         admin,
         shopDomain: shop,
         productId,
         triggerType: "Product updated",
-      }).catch((err) => console.warn("[Automated SKU Fallback Error]:", err.message));
+      })
+        .then((res) => {
+          console.log(`[Webhook PRODUCTS_UPDATE Result] for ${shop}:`, JSON.stringify(res));
+        })
+        .catch((err) => {
+          console.error(`[Webhook PRODUCTS_UPDATE Exec Error] for ${shop}:`, err.message);
+        });
+    } else {
+      console.warn(`[Webhook PRODUCTS_UPDATE Warning] Could not obtain admin GraphQL context for shop ${shop}`);
     }
+  } catch (err) {
+    console.error(`[Webhook PRODUCTS_UPDATE Exception] for shop ${shop}:`, err.message);
   }
 
   return new Response(null, { status: 200 });

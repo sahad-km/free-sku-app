@@ -1,5 +1,4 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { addAutomatedSkuJob } from "../services/queue/skuQueueService.server";
 import { evaluateAutomatedSkuForProduct } from "../services/sku/automatedSkuService.server";
 
 export const action = async ({ request }) => {
@@ -15,35 +14,48 @@ export const action = async ({ request }) => {
   }
 
   const { shop, topic, payload } = authResult;
-  console.log(`[Webhook] Received ${topic} webhook for shop ${shop}`);
+  console.log(`[Webhook PRODUCTS_CREATE] Received ${topic} webhook for shop ${shop}`);
 
   if (!shop || !payload) {
     return new Response(null, { status: 400 });
   }
 
   const productId = payload?.admin_graphql_api_id || (payload?.id ? `gid://shopify/Product/${payload.id}` : null);
-  if (!productId) return new Response(null, { status: 200 });
+  if (!productId) {
+    console.warn(`[Webhook PRODUCTS_CREATE] Missing productId in payload for shop ${shop}`);
+    return new Response(null, { status: 200 });
+  }
 
-  const eventId = request.headers.get("x-shopify-webhook-id") || `evt-${Date.now()}`;
+  console.log(`[Webhook PRODUCTS_CREATE] Processing SKU evaluation for product ${productId} on shop ${shop}`);
 
-  const queueRes = await addAutomatedSkuJob({
-    shopDomain: shop,
-    productId,
-    triggerType: "New product added",
-    eventId,
-  });
+  // Retrieve admin GraphQL client directly from authResult or fallback to unauthenticated offline session
+  try {
+    let admin = authResult?.admin;
+    if (!admin) {
+      const cleanShop = shop.toLowerCase().trim();
+      const unauthResult = await unauthenticated.admin(shop).catch(() => null) ||
+                           await unauthenticated.admin(cleanShop).catch(() => null);
+      admin = unauthResult?.admin;
+    }
 
-  if (!queueRes.isQueue) {
-    // Fallback in-process execution when Redis is unconfigured
-    const { admin } = await unauthenticated.admin(shop);
     if (admin) {
       evaluateAutomatedSkuForProduct({
         admin,
         shopDomain: shop,
         productId,
         triggerType: "New product added",
-      }).catch((err) => console.warn("[Automated SKU Fallback Error]:", err.message));
+      })
+        .then((res) => {
+          console.log(`[Webhook PRODUCTS_CREATE Result] for ${shop}:`, JSON.stringify(res));
+        })
+        .catch((err) => {
+          console.error(`[Webhook PRODUCTS_CREATE Exec Error] for ${shop}:`, err.message);
+        });
+    } else {
+      console.warn(`[Webhook PRODUCTS_CREATE Warning] Could not obtain admin GraphQL context for shop ${shop}`);
     }
+  } catch (err) {
+    console.error(`[Webhook PRODUCTS_CREATE Exception] for shop ${shop}:`, err.message);
   }
 
   return new Response(null, { status: 200 });

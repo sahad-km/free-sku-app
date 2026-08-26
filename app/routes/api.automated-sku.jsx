@@ -11,7 +11,7 @@ import { resolveSkuSelection } from "../services/sku/skuSelectionService";
 import { requireEntitlementGuard, FEATURES } from "../services/billing/entitlementService.server";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shopDomain = session?.shop;
 
   const url = new URL(request.url);
@@ -19,7 +19,7 @@ export const loader = async ({ request }) => {
   const statusTab = url.searchParams.get("tab") || "All rules";
 
   try {
-    const result = await getAutomationRules({ shopDomain, search, statusTab });
+    const result = await getAutomationRules({ admin, shopDomain, search, statusTab });
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { "Content-Type": "application/json" },
