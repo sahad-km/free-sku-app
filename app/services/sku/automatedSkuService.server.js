@@ -139,7 +139,7 @@ export async function updateAutomationRule({ admin, shopDomain, ruleId, updateDa
   const rule = await AutomationRule.findOneAndUpdate(
     { _id: ruleId, shopDomain },
     { $set: updateData },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!rule) throw new Error("Automation rule not found");

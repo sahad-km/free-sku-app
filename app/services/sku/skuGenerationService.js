@@ -10,6 +10,7 @@ import { validateGenerationEntitlements } from "./skuEntitlementService";
 import { createGenerationRunRecord, updateGenerationRunProgress } from "./generationJobService";
 import { addSkuGenerationJob } from "../queue/skuQueueService";
 import { executeShopifyBulkOperationRun } from "./shopifyBulkOpsService";
+import { sendSkuRunCompletionEmail } from "../email/emailService.server.js";
 
 /**
  * High-Scale Controlled Concurrency Helper
@@ -398,39 +399,82 @@ export async function executeSkuGenerationRun({
   if (totalVariants <= 50) {
     await runStreamedExecution();
     const finalRun = await SkuGenerationRun.findById(runId);
+    if (finalRun) {
+      sendSkuRunCompletionEmail({
+        shopDomain,
+        runId,
+        runSummary: {
+          ruleName,
+          status: finalRun.status,
+          totalVariants,
+          processedVariants: finalRun.processedVariants,
+          successfulVariants: finalRun.successfulVariants,
+          failedVariants: finalRun.failedVariants,
+          skippedVariants: finalRun.skippedVariants,
+          errorSummary: finalRun.errorSummary || "",
+        },
+      }).catch((e) => console.warn("[SkuGeneration] Email trigger warning:", e.message));
+    }
     return {
-      success: finalRun.status !== "Failed",
+      success: finalRun ? finalRun.status !== "Failed" : true,
       runId,
-      status: finalRun.status,
+      status: finalRun ? finalRun.status : "Completed",
       summary: {
         totalProducts,
         totalVariants,
-        processedVariants: finalRun.processedVariants,
-        generated: finalRun.successfulVariants,
-        skipped: finalRun.skippedVariants,
-        failed: finalRun.failedVariants,
-        creditsUsed: finalRun.successfulVariants,
+        processedVariants: finalRun?.processedVariants || 0,
+        generated: finalRun?.successfulVariants || 0,
+        skipped: finalRun?.skippedVariants || 0,
+        failed: finalRun?.failedVariants || 0,
+        creditsUsed: finalRun?.successfulVariants || 0,
       },
     };
   }
 
   // - Massive batch (> 1,000 variants): Shopify Bulk Operations API Engine!
   const targetExecution = async () => {
-    if (totalVariants > 1000) {
-      console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Shopify Bulk Operations API Engine`);
-      await executeShopifyBulkOperationRun({
-        admin,
-        session,
-        selection,
-        skuConfiguration,
-        ruleName,
+    try {
+      if (totalVariants > 1000) {
+        console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Shopify Bulk Operations API Engine`);
+        await executeShopifyBulkOperationRun({
+          admin,
+          session,
+          selection,
+          skuConfiguration,
+          ruleName,
+          runId,
+          totalVariants,
+          startSeqNum,
+        });
+      } else {
+        console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Streamed GraphQL Concurrency Engine`);
+        await runStreamedExecution();
+      }
+
+      const finalRun = await SkuGenerationRun.findById(runId);
+      if (finalRun) {
+        sendSkuRunCompletionEmail({
+          shopDomain,
+          runId,
+          runSummary: {
+            ruleName,
+            status: finalRun.status,
+            totalVariants,
+            processedVariants: finalRun.processedVariants,
+            successfulVariants: finalRun.successfulVariants,
+            failedVariants: finalRun.failedVariants,
+            skippedVariants: finalRun.skippedVariants,
+            errorSummary: finalRun.errorSummary || "",
+          },
+        }).catch((e) => console.warn("[SkuGeneration] Email trigger warning:", e.message));
+      }
+    } catch (err) {
+      console.error("[Async Generation Engine Error]:", err.message);
+      await updateGenerationRunProgress({
         runId,
-        totalVariants,
-        startSeqNum,
-      });
-    } else {
-      console.log(`[Engine Route] Routing run ${runId} (${totalVariants} variants) to Streamed GraphQL Concurrency Engine`);
-      await runStreamedExecution();
+        status: "Failed",
+        errorSummary: err.message,
+      }).catch(() => {});
     }
   };
 
@@ -441,14 +485,7 @@ export async function executeSkuGenerationRun({
   }
 
   // Fallback in-process async execution when BullMQ/Redis is not configured
-  targetExecution().catch((err) => {
-    console.error("[Async Generation Engine Error]:", err.message);
-    updateGenerationRunProgress({
-      runId,
-      status: "Failed",
-      errorSummary: err.message,
-    }).catch(() => {});
-  });
+  targetExecution();
 
   return {
     success: true,

@@ -12,6 +12,7 @@ import {
   DeleteHistoryModal,
   ExportModal,
 } from "../components/SkuHistory/HistoryModals";
+import ReviewBanner from "../components/Common/ReviewBanner";
 import "../styles/app.generate-history.css";
 
 export const loader = async ({ request }) => {
@@ -267,6 +268,12 @@ export default function GenerateHistoryPage() {
           onRunAgain={handleRunAgain}
           onDuplicateRule={handleDuplicateRule}
           onDeleteRecord={(rec) => setSelectedDeleteRecord(rec)}
+        />
+
+        {/* ── Bottom Review & Support Banner ─────────────────────────── */}
+        <ReviewBanner
+          title="How was your SKU generation experience?"
+          description="If our generator helped organize your Shopify inventory, a 5-star rating on the App Store helps us keep adding free tools! Have ideas or issues? We're always here to help."
         />
       </div>
 

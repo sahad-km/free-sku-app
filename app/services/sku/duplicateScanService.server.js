@@ -25,7 +25,8 @@ export async function executeCatalogDuplicateScan({ admin, shopDomain }) {
   let cursor = null;
   let totalVariantsScanned = 0;
   const scannedProductIds = new Set();
-  const skuMap = {}; // Map of normalized SKU -> array of variant snapshots
+  // Map of normalized SKU -> { first: compactRecord, duplicates: [records] | null }
+  const skuTracker = new Map();
 
   try {
     while (hasNextPage) {
@@ -71,26 +72,39 @@ export async function executeCatalogDuplicateScan({ admin, shopDomain }) {
           // Ignore blank/empty SKUs
           if (!sku) return;
 
-          if (!skuMap[sku]) {
-            skuMap[sku] = [];
-          }
-
-          skuMap[sku].push({
+          const record = {
             id: `rec-${product.id}-${variant.id}`,
             productId: product.id,
             variantId: variant.id,
             product: product.title,
             variant: variant.title,
             currentSku: sku,
-          });
+          };
+
+          const existing = skuTracker.get(sku);
+          if (!existing) {
+            // First time seeing this SKU - store lightweight reference
+            skuTracker.set(sku, { first: record, list: null });
+          } else if (!existing.list) {
+            // Second time seeing this SKU - promote to duplicate list
+            existing.list = [existing.first, record];
+            existing.first = null; // Free initial reference
+          } else {
+            // 3rd+ collision
+            existing.list.push(record);
+          }
         });
       });
     }
 
-    // Filter SKU groups with more than 1 variant (Duplicates)
-    const duplicateSkuEntries = Object.entries(skuMap).filter(
-      ([_, records]) => records.length > 1
-    );
+    // Extract only detected duplicate groups
+    const duplicateGroupsList = [];
+    for (const [sku, entry] of skuTracker.entries()) {
+      if (entry.list && entry.list.length > 1) {
+        duplicateGroupsList.push({ sku, records: entry.list });
+      }
+    }
+    skuTracker.clear(); // Free tracker memory immediately
 
     let totalAffectedVariants = 0;
     const groupDocs = [];
@@ -98,7 +112,7 @@ export async function executeCatalogDuplicateScan({ admin, shopDomain }) {
     // Remove previous UNRESOLVED duplicate groups for this store before saving fresh scan
     await DuplicateGroup.deleteMany({ shopDomain, status: "UNRESOLVED" });
 
-    duplicateSkuEntries.forEach(([sku, records]) => {
+    duplicateGroupsList.forEach(({ sku, records }) => {
       totalAffectedVariants += records.length;
       const firstRecord = records[0];
 
@@ -115,17 +129,18 @@ export async function executeCatalogDuplicateScan({ admin, shopDomain }) {
     });
 
     if (groupDocs.length > 0) {
-      await DuplicateGroup.insertMany(groupDocs);
+      // Chunk inserts in batches of 100 to prevent large BSON buffer spikes
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < groupDocs.length; i += CHUNK_SIZE) {
+        const chunk = groupDocs.slice(i, i + CHUNK_SIZE);
+        await DuplicateGroup.insertMany(chunk);
+      }
     }
 
     scanRun.status = "Completed";
     scanRun.totalProductsScanned = scannedProductIds.size;
     scanRun.totalVariantsScanned = totalVariantsScanned;
-    scanRun.duplicateGroupsFound = duplicateSkuEntries.length;
-    scanRun.affectedVariants = totalAffectedVariants;
-    scanRun.completedAt = new Date();
-    await scanRun.save();
-    scanRun.duplicateGroupsFound = duplicateSkuEntries.length;
+    scanRun.duplicateGroupsFound = duplicateGroupsList.length;
     scanRun.affectedVariants = totalAffectedVariants;
     scanRun.completedAt = new Date();
     await scanRun.save();
@@ -134,7 +149,7 @@ export async function executeCatalogDuplicateScan({ admin, shopDomain }) {
       success: true,
       scanRunId: scanRun._id.toString(),
       totalVariantsScanned,
-      duplicateGroupsFound: duplicateSkuEntries.length,
+      duplicateGroupsFound: duplicateGroupsList.length,
       affectedVariants: totalAffectedVariants,
     };
   } catch (err) {

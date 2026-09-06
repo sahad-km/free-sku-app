@@ -41,7 +41,7 @@ export async function ensureShopDetailsSynced({ admin, shopDomain }) {
             lastSeenAt: new Date(),
           },
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: "after" }
       );
 
       console.log(`[ShopSync] Successfully synced shop details for ${shopDomain} (Email: ${shopData.email || "N/A"})`);

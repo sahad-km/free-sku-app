@@ -113,6 +113,8 @@ export function initSkuWorker() {
     return workerInstance;
   }
 
+  const concurrency = parseInt(process.env.WORKER_CONCURRENCY || "2", 10);
+
   try {
     workerInstance = new Worker(
       QUEUE_NAME,
@@ -121,7 +123,7 @@ export function initSkuWorker() {
       },
       {
         connection: redisConnection,
-        concurrency: 5,
+        concurrency,
       }
     );
 
@@ -148,7 +150,7 @@ export function initSkuWorker() {
       }
     });
 
-    console.log("[SkuWorker] BullMQ Worker listener initialized with concurrency: 5");
+    console.log(`[SkuWorker] BullMQ Worker listener initialized with concurrency: ${concurrency}`);
     
     // Trigger immediate recovery check for any currently queued runs
     recoverStuckQueuedRuns().catch(() => {});

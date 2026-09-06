@@ -21,7 +21,15 @@ export default function SupportSidebarCards({ onContactSupport, onContactSales }
         <div className="support-btn-wrapper">
           <button
             className="btn-support-action"
-            onClick={onContactSupport}
+            onClick={() => {
+              if (onContactSupport) {
+                onContactSupport();
+              } else if (typeof window !== "undefined" && window.Tawk_API && typeof window.Tawk_API.maximize === "function") {
+                window.Tawk_API.maximize();
+              } else {
+                window.location.href = "mailto:catalystcreationapps@gmail.com?subject=Pricing%20Plan%20Help";
+              }
+            }}
             type="button"
           >
             <span>Contact support</span>
@@ -41,7 +49,15 @@ export default function SupportSidebarCards({ onContactSupport, onContactSales }
 
             <button
               className="btn-support-action"
-              onClick={onContactSales}
+              onClick={() => {
+                if (onContactSales) {
+                  onContactSales();
+                } else if (typeof window !== "undefined" && window.Tawk_API && typeof window.Tawk_API.maximize === "function") {
+                  window.Tawk_API.maximize();
+                } else {
+                  window.location.href = "mailto:catalystcreationapps@gmail.com?subject=Custom%20Enterprise%20Solution%20Inquiry";
+                }
+              }}
               type="button"
             >
               <span>Contact sales</span>

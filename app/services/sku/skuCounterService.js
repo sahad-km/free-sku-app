@@ -43,7 +43,7 @@ export async function getNextSequenceNumber({
   const updatedDoc = await ShopSkuCounter.findOneAndUpdate(
     { shopDomain, counterKey },
     { $inc: { nextValue: step } },
-    { new: false, upsert: true }
+    { returnDocument: "before", upsert: true }
   );
 
   const startValue = updatedDoc ? updatedDoc.nextValue : initialStart;

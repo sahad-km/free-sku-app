@@ -60,7 +60,7 @@ export async function reserveShopCredits({ shopDomain, requiredCredits = 1 }) {
   const updatedShop = await Shop.findOneAndUpdate(
     { shopDomain },
     { $inc: { creditsUsed: requiredCredits } },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   return {
@@ -87,6 +87,6 @@ export async function refundShopCredits({ shopDomain, refundCount = 1 }) {
   await Shop.findOneAndUpdate(
     { shopDomain },
     { $set: { creditsUsed: newUsed } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }

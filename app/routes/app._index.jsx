@@ -13,6 +13,7 @@ import {
   quickActionsData,
   recommendationsData,
 } from "../components/Dashboard/mockData";
+import ReviewBanner from "../components/Common/ReviewBanner";
 import "../styles/app._index.css";
 
 export const loader = async ({ request }) => {
@@ -45,6 +46,12 @@ export default function DashboardPage() {
         )}
 
         <DashboardHeader />
+
+        {/* ── App Review & Support Callout Banner ────────────────────── */}
+        <ReviewBanner
+          title="Enjoying Free SKU Generator?"
+          description="If our app helps manage your inventory, please consider leaving a 5-star rating on Shopify. Have questions or ideas? Email our support team anytime!"
+        />
 
         {/* ── Section 1: KPI Cards ────────────────────────────────────── */}
         <div className="stat-grid">

@@ -4,6 +4,7 @@ RUN apk add --no-cache openssl
 EXPOSE 3000
 
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=384"
 
 WORKDIR /app
 

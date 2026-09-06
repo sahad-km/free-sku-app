@@ -127,7 +127,19 @@ export default function DetectionSidebar({ scanSummary = {}, onContactSupport })
           If you have questions about duplicate SKUs, our support team is here to help.
         </p>
 
-        <button className="btn-contact-support" onClick={onContactSupport} type="button">
+        <button
+          className="btn-contact-support"
+          onClick={() => {
+            if (onContactSupport) {
+              onContactSupport();
+            } else if (typeof window !== "undefined" && window.Tawk_API && typeof window.Tawk_API.maximize === "function") {
+              window.Tawk_API.maximize();
+            } else {
+              window.location.href = "mailto:catalystcreationapps@gmail.com?subject=Duplicate%20SKU%20Support%20Request";
+            }
+          }}
+          type="button"
+        >
           <HeadsetIcon size={15} color="#5B3DF5" />
           <span>Contact support</span>
         </button>

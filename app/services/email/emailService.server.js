@@ -1,5 +1,5 @@
-import Shop from "../../models/Shop.server";
-import { connectMongoose } from "../../db.mongoose.server";
+import Shop from "../../models/Shop.server.js";
+import { connectMongoose } from "../../db.mongoose.server.js";
 
 /**
  * Sends an email notification to the store email when an SKU generation run finishes.

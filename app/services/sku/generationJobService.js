@@ -84,6 +84,6 @@ export async function updateGenerationRunProgress({
     updateFields.$set.completedAt = new Date();
   }
 
-  const updated = await SkuGenerationRun.findByIdAndUpdate(runId, updateFields, { new: true });
+  const updated = await SkuGenerationRun.findByIdAndUpdate(runId, updateFields, { returnDocument: "after" });
   return updated;
 }

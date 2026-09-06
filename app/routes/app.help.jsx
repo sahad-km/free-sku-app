@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import { useToast } from "../components/Common/Toast";
 import {
   GlobeIcon,
   BookIcon,
@@ -16,6 +15,7 @@ import {
   MinusIcon,
   ChatIcon,
 } from "../components/Help/Icons";
+import ReviewBanner from "../components/Common/ReviewBanner";
 import "../styles/app.help.css";
 
 export const loader = async ({ request }) => {
@@ -109,16 +109,9 @@ const FAQ_ITEMS = [
 ];
 
 export default function HelpPage() {
-  const { showToast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedFaqId, setExpandedFaqId] = useState(1);
-
-  // Form State
-  const [ticketTopic, setTicketTopic] = useState("general");
-  const [ticketSubject, setTicketSubject] = useState("");
-  const [ticketMessage, setTicketMessage] = useState("");
-  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
   // Filter FAQs
   const filteredFaqs = useMemo(() => {
@@ -138,22 +131,6 @@ export default function HelpPage() {
 
   const handleToggleFaq = (id) => {
     setExpandedFaqId(expandedFaqId === id ? null : id);
-  };
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (!ticketSubject.trim() || !ticketMessage.trim()) {
-      showToast("Please complete all required fields.", "warning");
-      return;
-    }
-
-    setIsSubmittingTicket(true);
-    setTimeout(() => {
-      setIsSubmittingTicket(false);
-      setTicketSubject("");
-      setTicketMessage("");
-      showToast("Support ticket submitted! Our team will respond shortly.", "success");
-    }, 600);
   };
 
   return (
@@ -201,49 +178,62 @@ export default function HelpPage() {
             const IconComp = cat.iconComponent;
             const isSelected = selectedCategory === cat.id;
             return (
-              <div
+              <button
                 key={cat.id}
-                className={`category-card ${isSelected ? "active" : ""}`}
+                className={`category-card ${isSelected ? "category-card-active" : ""}`}
                 onClick={() => setSelectedCategory(cat.id)}
+                type="button"
               >
                 <div
-                  className="category-icon-wrapper"
+                  className="category-icon-box"
                   style={{
-                    backgroundColor: isSelected ? "#E0E7FF" : "#F1F5F9",
+                    backgroundColor: `${cat.color}15`,
+                    color: cat.color,
                   }}
                 >
                   <IconComp size={20} color={cat.color} />
                 </div>
-                <div>
+                <div className="category-info">
                   <h3 className="category-title">{cat.title}</h3>
-                  <p className="category-count">{cat.count} articles</p>
+                  <span className="category-count">{cat.count} FAQs</span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
 
-        {/* ── FAQ Accordion Section ───────────────────────────────── */}
+        {/* ── FAQs Accordion Section ──────────────────────────────── */}
         <div className="faq-section-card">
-          <div className="faq-header-row">
-            <h2 className="faq-section-title">
-              {selectedCategory === "all"
-                ? "Frequently Asked Questions"
-                : FAQ_CATEGORIES.find((c) => c.id === selectedCategory)?.title || "FAQs"}
-            </h2>
-            <span style={{ fontSize: "13px", color: "#64748B", fontWeight: 500 }}>
-              Showing {filteredFaqs.length} answers
-            </span>
+          <div className="faq-section-header">
+            <div>
+              <h2 className="faq-section-title">
+                {selectedCategory === "all"
+                  ? "Frequently Asked Questions"
+                  : `${FAQ_CATEGORIES.find((c) => c.id === selectedCategory)?.title} Questions`}
+              </h2>
+              <p className="faq-section-subtitle">
+                Showing {filteredFaqs.length} {filteredFaqs.length === 1 ? "article" : "articles"}
+              </p>
+            </div>
+
+            {selectedCategory !== "all" && (
+              <button
+                className="btn-reset-category"
+                onClick={() => setSelectedCategory("all")}
+                type="button"
+              >
+                View all topics
+              </button>
+            )}
           </div>
 
           <div className="faq-list">
             {filteredFaqs.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "32px 16px", color: "#64748B" }}>
-                <p style={{ fontWeight: 600, fontSize: "15px", margin: "0 0 6px 0" }}>
-                  No matching help articles found
-                </p>
-                <p style={{ fontSize: "13px", margin: 0 }}>
-                  Try adjusting your search query or choosing another category above.
+              <div className="faq-empty-state">
+                <SearchIcon size={32} color="#94A3B8" />
+                <h4 style={{ margin: "10px 0 4px 0", color: "#1E293B" }}>No matching answers found</h4>
+                <p style={{ margin: 0, color: "#64748B", fontSize: "13px" }}>
+                  Try different keywords or browse all categories above.
                 </p>
               </div>
             ) : (
@@ -278,105 +268,100 @@ export default function HelpPage() {
           </div>
         </div>
 
-        {/* ── Contact Support & Info Grid ─────────────────────────── */}
-        <div className="contact-section-grid">
-          {/* Left: Contact Form */}
-          <div className="support-form-card">
+        {/* ── Direct Support & Live Assistance ───────────────────── */}
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: "12px",
+            padding: "24px 28px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "20px",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+          }}
+        >
+          <div style={{ maxWidth: "560px" }}>
             <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 6px 0", color: "#0F172A" }}>
-              Still have questions? Contact Support
+              Still have questions or need help?
             </h2>
-            <p style={{ fontSize: "13.5px", color: "#64748B", margin: "0 0 20px 0" }}>
-              Send a direct message to our support team and we will get back to you within a few hours.
+            <p style={{ fontSize: "14px", color: "#64748B", margin: "0 0 14px 0", lineHeight: "1.5" }}>
+              Our support team is always available. Start a live chat session or email us directly and we will assist you right away.
             </p>
-
-            <form onSubmit={handleFormSubmit}>
-              <div className="form-group">
-                <label className="form-label">Issue Topic</label>
-                <select
-                  className="form-select"
-                  value={ticketTopic}
-                  onChange={(e) => setTicketTopic(e.target.value)}
-                >
-                  <option value="general">General Question</option>
-                  <option value="sku-rule">SKU Layout / Formatting Help</option>
-                  <option value="automation">Auto SKU & Webhooks</option>
-                  <option value="duplicate">Duplicate SKU Resolution</option>
-                  <option value="billing">Billing & Subscription</option>
-                  <option value="feature">Feature Request</option>
-                </select>
+            <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", fontSize: "13px", color: "#475569" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <MailIcon size={16} color="#5B3DF5" />
+                <span>catalystcreationapps@gmail.com</span>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Subject</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={ticketSubject}
-                  onChange={(e) => setTicketSubject(e.target.value)}
-                  placeholder="e.g. Need help configuring product option SKU sequence"
-                  required
-                />
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <ClockIcon size={16} color="#5B3DF5" />
+                <span>Response within 24 hours</span>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Message</label>
-                <textarea
-                  className="form-textarea"
-                  rows={4}
-                  value={ticketMessage}
-                  onChange={(e) => setTicketMessage(e.target.value)}
-                  placeholder="Describe your issue or question in detail..."
-                  required
-                />
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <ShieldCheckIcon size={16} color="#16A34A" />
+                <span>Shopify App Guarantee</span>
               </div>
-
-              <button
-                className="btn-submit-ticket"
-                type="submit"
-                disabled={isSubmittingTicket}
-              >
-                {isSubmittingTicket ? "Submitting..." : "Send Support Message"}
-              </button>
-            </form>
+            </div>
           </div>
 
-          {/* Right: Support Info Card */}
-          <div className="support-info-card">
-            <h3 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "#1E293B" }}>
-              Customer Support Center
-            </h3>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.Tawk_API && typeof window.Tawk_API.maximize === "function") {
+                  window.Tawk_API.maximize();
+                } else {
+                  window.location.href = "mailto:catalystcreationapps@gmail.com?subject=SKU%20App%20Support%20Request";
+                }
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                backgroundColor: "#5B3DF5",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "13.5px",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "0 1px 3px rgba(91, 61, 245, 0.2)",
+              }}
+            >
+              <ChatIcon size={16} color="#FFFFFF" />
+              <span>Start Live Chat</span>
+            </button>
 
-            <div className="info-item">
-              <div className="info-icon-box">
-                <MailIcon size={18} color="#4F46E5" />
-              </div>
-              <div>
-                <h4 className="info-title">Email Support</h4>
-                <p className="info-desc">support@free-sku-app.com</p>
-              </div>
-            </div>
-
-            <div className="info-item">
-              <div className="info-icon-box">
-                <ClockIcon size={18} color="#4F46E5" />
-              </div>
-              <div>
-                <h4 className="info-title">Support Hours</h4>
-                <p className="info-desc">Monday – Saturday: 24/7 Priority Support for Pro & Unlimited subscribers.</p>
-              </div>
-            </div>
-
-            <div className="info-item">
-              <div className="info-icon-box">
-                <ShieldCheckIcon size={18} color="#4F46E5" />
-              </div>
-              <div>
-                <h4 className="info-title">Shopify App Guarantee</h4>
-                <p className="info-desc">Built strictly adhering to Shopify App Bridge and GraphQL performance standards.</p>
-              </div>
-            </div>
+            <a
+              href="mailto:catalystcreationapps@gmail.com?subject=SKU%20App%20Support%20Request"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "10px 16px",
+                backgroundColor: "#FFFFFF",
+                color: "#334155",
+                border: "1px solid #CBD5E1",
+                borderRadius: "8px",
+                fontSize: "13.5px",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              <MailIcon size={15} color="#64748B" />
+              <span>Email Support</span>
+            </a>
           </div>
         </div>
+
+        {/* Bottom Review Callout */}
+        <ReviewBanner
+          title="Love using Free SKU Bulk Generator?"
+          description="A quick 5-star review on the Shopify App Store means the world to our independent developer team. Have suggestions or feature requests? Contact us directly anytime!"
+        />
       </div>
     </div>
   );

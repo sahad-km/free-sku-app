@@ -187,6 +187,14 @@ export default function DuplicatedSkuPage() {
     showToast(`Duplicate SKU report exported as ${format.toUpperCase()}!`, "success");
   };
 
+  const handleContactSupport = () => {
+    if (typeof window !== "undefined" && window.Tawk_API && typeof window.Tawk_API.maximize === "function") {
+      window.Tawk_API.maximize();
+    } else {
+      window.location.href = "mailto:catalystcreationapps@gmail.com?subject=Help%20with%20Duplicate%20SKUs";
+    }
+  };
+
   return (
     <div className="dup-page-root">
       <div className="dup-page-inner">
@@ -222,7 +230,7 @@ export default function DuplicatedSkuPage() {
           {/* Right Column: Detection Guides & Scan Summary Sidebar */}
           <DetectionSidebar
             scanSummary={scanSummary}
-            onContactSupport={() => showToast("Connecting to Shopify SKU Support...", "info")}
+            onContactSupport={handleContactSupport}
           />
         </div>
       </div>

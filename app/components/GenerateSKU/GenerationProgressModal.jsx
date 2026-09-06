@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import ReviewBanner from "../Common/ReviewBanner";
 
 export default function GenerationProgressModal({ isOpen, runId, onComplete, onClose }) {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function GenerationProgressModal({ isOpen, runId, onComplete, onC
             setTimeout(() => {
               if (onComplete) onComplete(run);
               navigate("/app/generate-history");
-            }, 3500);
+            }, 6000);
           }
         }
       } catch (err) {
@@ -160,7 +161,7 @@ export default function GenerationProgressModal({ isOpen, runId, onComplete, onC
           </div>
 
           {/* Metrics summary */}
-          <div style={{ display: "flex", justifyContent: "space-around", fontSize: "13px", color: "#6B7280", backgroundColor: "#F9FAFB", padding: "12px", borderRadius: "8px", marginBottom: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-around", fontSize: "13px", color: "#6B7280", backgroundColor: "#F9FAFB", padding: "12px", borderRadius: "8px", marginBottom: "16px" }}>
             <div>
               <span style={{ display: "block", color: "#059669", fontWeight: 700, fontSize: "16px" }}>
                 {runProgress.successfulVariants.toLocaleString()}
@@ -180,6 +181,13 @@ export default function GenerationProgressModal({ isOpen, runId, onComplete, onC
               <span>Skipped</span>
             </div>
           </div>
+
+          {/* Celebratory Review & Feedback Callout */}
+          {isDone && (
+            <div style={{ marginBottom: "16px" }}>
+              <ReviewBanner variant="celebration" dismissible={false} />
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", paddingTop: "8px", borderTop: "1px solid #F3F4F6" }}>

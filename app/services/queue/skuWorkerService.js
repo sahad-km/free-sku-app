@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
-import { getRedisConnection, isQueueActive } from "./skuQueueService";
-import { executeSkuGenerationRun } from "../sku/skuGenerationService";
+import { getRedisConnection, isQueueActive } from "./skuQueueService.server.js";
+import { executeSkuGenerationRun } from "../sku/skuGenerationService.server.js";
 import { unauthenticated } from "../../shopify.server";
 import { connectMongoose } from "../../db.mongoose.server";
 import SkuGenerationRun from "../../models/SkuGenerationRun.server";
@@ -53,6 +53,8 @@ export function initSkuWorker() {
 
   if (workerInstance) return workerInstance;
 
+  const concurrency = parseInt(process.env.WORKER_CONCURRENCY || "2", 10);
+
   try {
     workerInstance = new Worker(
       QUEUE_NAME,
@@ -61,7 +63,7 @@ export function initSkuWorker() {
       },
       {
         connection: redisConnection,
-        concurrency: 5, // Process up to 5 concurrent SKU generation runs across shops
+        concurrency,
       }
     );
 
@@ -80,7 +82,7 @@ export function initSkuWorker() {
       }
     });
 
-    console.log("[SkuWorker] BullMQ Worker listener initialized with concurrency: 5");
+    console.log(`[SkuWorker] BullMQ Worker listener initialized with concurrency: ${concurrency}`);
     return workerInstance;
   } catch (err) {
     console.warn("[SkuWorker] Failed to start BullMQ Worker:", err.message);
